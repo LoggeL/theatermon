@@ -163,6 +163,13 @@ canvas{display:block;}
   clip-path:circle(0% at 50% 50%);transition:clip-path .55s ease-in;}
 #wipe.on{clip-path:circle(75% at 50% 50%);}
 
+/* floating damage/buff text */
+.float-dmg{position:fixed;z-index:26;pointer-events:none;font-family:'Special Elite',monospace;
+  font-size:32px;transform:translate(-50%,-50%);
+  text-shadow:2px 2px 0 #16120f,-1px -1px 0 #16120f,1px -1px 0 #16120f,-1px 1px 0 #16120f;
+  animation:floatUp 1.05s ease-out forwards;}
+@keyframes floatUp{0%{opacity:0;margin-top:8px;}12%{opacity:1;}100%{opacity:0;margin-top:-72px;}}
+
 /* encounter ! */
 #excl{position:fixed;top:16%;left:50%;z-index:55;pointer-events:none;
   font-family:'Special Elite',monospace;font-size:90px;color:var(--paper);
@@ -176,6 +183,13 @@ canvas{display:block;}
 
 @keyframes floaty{0%,100%{transform:translateY(0) rotate(-1.6deg);}50%{transform:translateY(-7px) rotate(-1.6deg);}}
 #title h1{animation:floaty 4s ease-in-out infinite;}
+
+/* schmale Fenster: Karte nicht unters Menü schieben, Vorhänge weg */
+@media (max-width:900px){
+  .curtain{display:none;}
+  #player-card{bottom:auto;top:70px;right:14px;}
+  #battle-ui .card{min-width:190px;}
+}
 </style>
 </head>
 <body>
@@ -205,6 +219,9 @@ canvas{display:block;}
     <h2>Wen spielst du?</h2>
     <div class="sub2">Dein Charakter zieht los, um das Ensemble zu retten. Alle anderen bleiben castbar.</div>
     <div class="grid" id="charsel-grid"></div>
+    <div class="row" style="margin-top:12px">
+      <button class="btn" id="charsel-back">&#x2190; Zurück zum Titel</button>
+    </div>
   </div>
 </div>
 
@@ -212,6 +229,7 @@ canvas{display:block;}
 <div id="starter" class="layer hidden">
   <h2>Wer begleitet dich zuerst?</h2>
   <div class="cards" id="starter-cards"></div>
+  <button class="btn" id="starter-back">&#x2190; Anderen Charakter wählen</button>
 </div>
 
 <!-- ============ HUD ============ -->
@@ -347,7 +365,6 @@ const TYPE_NAME = { S:'Schauspiel', T:'Technik', K:'Kostüm', R:'Regie', W:'Webs
 function typeEff(att, def){
   if (att==='R' || att==='W') return 1.25;
   if (att==='T'&&def==='S' || att==='S'&&def==='K' || att==='K'&&def==='T') return 1.6;
-  if (def==='T'&&att==='S' || def==='S'&&att==='K' || def==='K'&&att==='R') return 1;
   if (att==='S'&&def==='T' || att==='K'&&def==='S' || att==='T'&&def==='K') return 0.65;
   return 1;
 }
@@ -358,7 +375,7 @@ const MOVES = {
   lampenfieber:{n:'Lampenfieber',         t:'S', p:0,  acc:1, eff:'atkDown' },
   ovation:    { n:'Standing Ovation',     t:'S', p:0,  acc:1, eff:'heal' },
   blackout:   { n:'Blackout',             t:'T', p:26, acc:.9 },
-  nebel:      { n:'Nebelmaschine',        t:'T', p:14, acc:1, eff:'atkDown' },
+  nebel:      { n:'Nebelmaschine',        t:'T', p:0,  acc:1, eff:'atkDown' },
   feedback:   { n:'Feedback-Pfeifen',     t:'T', p:20, acc:.95 },
   soundcheck: { n:'Soundcheck',           t:'T', p:0,  acc:1, eff:'atkUp' },
   followspot: { n:'Verfolger-Spot',       t:'T', p:16, acc:1 },
@@ -423,21 +440,22 @@ const MOVE_POOL = {
   T:['blackout','nebel','feedback','soundcheck','followspot'],
   K:['maskenball','nadelstich','fundus','anprobe','kostuem'],
 };
-// [name, rolle, typ] — kompletter Cast & Crew (ohne Logge=Spieler, Sebastian=Boss)
+// [name, rolle, typ, produktionen] — kompletter Cast & Crew (ohne Logge=Boss, Sebastian wählbar)
+// Produktionen = echte Daten von kolpingtheater-ramsen.de/team/<Name> (Crew: Jahre seit Beitritt)
 const RAW = [
-  ['Carina','Drusilla','S'],['Elena','Lucy','S'],['Fernanda','Tante Heideltraut','S'],
-  ['Fynn','Ensemble','S'],['Hendrik','Karl','S'],['Jakob','Bruno','S'],
-  ['Jonas','Vetter Viktor','S'],['Jule','Motte','S'],['Julian','Ensemble','S'],
-  ['Lena','Ensemble','S'],['Lina','Fiona','S'],['Lina K.','Ensemble','S'],
-  ['Louis','Graf Thaddäus','S'],['Marcella','Suzie','S'],['Max','Ensemble','S'],
-  ['Maximilian','Ensemble','S'],['Nela','Felia','S'],['Nele','Prinzessin Iset','S'],
-  ['Niko','Praktikant Emil','S'],['Nora','Ensemble','S'],['Raphael','Diener','S'],
-  ['Sophie','Mia','S'],['Theresa','Clara','S'],['Till','Herr Schniebli','S'],
-  ['Tobias','Jacques','S'],['Vanessa','Ensemble','S'],['Yunus','Dr. Adrian Düsterwald','S'],
-  ['Cathrin','Kostüme','K'],['Christian','Bühnen- & Videotechnik','T'],
-  ['Daniel','Lichttechnik','T'],['Florian','Lichttechnik','T'],['Jonas','Lichttechnik','T'],
-  ['Julian','Bühnentechnik','T'],['Leo','Bühnentechnik & Foto','T'],['Philipp','Bühnentechnik','T'],
-  ['Maren','Bühnentechnik','T'],['Wolfgang','Tontechnik','T'],['Ursula','Tontechnik','T'],
+  ['Carina','Drusilla','S',11],['Elena','Lucy','S',7],['Fernanda','Tante Heideltraut','S',6],
+  ['Fynn','Ensemble','S',5],['Hendrik','Karl','S',1],['Jakob','Bruno','S',2],
+  ['Jonas','Vetter Viktor','S',8],['Jule','Motte','S',3],['Julian','Ensemble','S',12],
+  ['Lena','Ensemble','S',3],['Lina','Fiona','S',8],['Lina K.','Ensemble','S',3],
+  ['Louis','Graf Thaddäus','S',7],['Marcella','Suzie','S',2],['Max','Ensemble','S',7],
+  ['Maximilian','Ensemble','S',10],['Nela','Felia','S',7],['Nele','Prinzessin Iset','S',8],
+  ['Niko','Praktikant Emil','S',8],['Nora','Ensemble','S',11],['Raphael','Diener','S',5],
+  ['Sophie','Mia','S',3],['Theresa','Clara','S',6],['Till','Herr Schniebli','S',7],
+  ['Tobias','Jacques','S',8],['Vanessa','Ensemble','S',6],['Yunus','Dr. Adrian Düsterwald','S',6],
+  ['Cathrin','Kostüme','K',2],['Christian','Bühnen- & Videotechnik','T',7],
+  ['Daniel','Lichttechnik','T',6],['Florian','Lichttechnik','T',7],['Jonas','Lichttechnik','T',8],
+  ['Julian','Bühnentechnik','T',12],['Leo','Bühnentechnik & Foto','T',5],['Philipp','Bühnentechnik','T',3],
+  ['Maren','Bühnentechnik','T',2],['Wolfgang','Tontechnik','T',10],['Ursula','Tontechnik','T',10],
 ];
 const TOTAL = RAW.length; // 38
 
@@ -449,8 +467,13 @@ const SHIRT = {
   K:['#b85cc4','#9b5de5','#d264b6','#7d4fb2','#c86bfa'],
   R:['#222222'],
 };
+// zentrale Statformel — Level = echte Produktions-Anzahl (1–12)
+function applyStats(m){
+  m.maxHP = 28 + m.lvl*5 + m.hpV;
+  m.atk = 9 + Math.round(m.lvl*1.6) + m.atkV;
+}
 function makeMember(id, lvl){
-  const [name, role, type] = RAW[id];
+  const [name, role, type, prods] = RAW[id];
   const rng = mulberry(hashStr(name + role));
   const pool = MOVE_POOL[type].slice();
   // Signature-Move der Rolle + 3 aus dem Typ-Pool
@@ -461,10 +484,8 @@ function makeMember(id, lvl){
   }
   const hpV = Math.floor(rng()*8), atkV = Math.floor(rng()*4);
   const m = {
-    id, name, role, type, lvl,
-    xp: 0,
-    maxHP: 26 + lvl*6 + hpV, atk: 8 + lvl*2 + atkV,
-    hpV, atkV, moves,
+    id, name, role, type, lvl: lvl ?? prods,
+    xp: 0, hpV, atkV, moves,
     palette: {
       skin: pick(rng, SKIN), hair: pick(rng, HAIR),
       shirt: pick(rng, SHIRT[type]), pants: pick(rng, ['#3b3b50','#4a3f35','#2f4858','#5d5d6e']),
@@ -472,17 +493,24 @@ function makeMember(id, lvl){
     },
     buff: { atk:1, def:1 },
   };
+  applyStats(m);
   m.hp = m.maxHP;
   return m;
 }
 function levelUp(m){
-  m.lvl++; m.maxHP += 6; m.atk += 2; m.hp = Math.min(m.maxHP, m.hp + 8);
+  m.lvl++;
+  applyStats(m);
+  m.hp = Math.min(m.maxHP, m.hp + Math.round(m.maxHP*.15));
 }
 function xpNeed(m){ return m.lvl * 24; }
 function makeBoss(){
+  // Boss skaliert mit dem Team statt statischer Werte
+  const teamL = G.ensemble.length
+    ? G.ensemble.reduce((s, m) => s + m.lvl, 0) / G.ensemble.length : 6;
+  const L = Math.round(teamL) + 2;
   const b = {
-    id:-1, name:'Logge', role:'Der Saboteur', type:'W', lvl:10,
-    maxHP: 150, hp:150, atk: 34, xp:0,
+    id:-1, name:'Logge', role:'Der Saboteur', type:'W', lvl:11,
+    maxHP: 70 + L*14, hp: 70 + L*14, atk: 10 + Math.round(L*2.2), xp:0,
     moves:['absage','sabotage','vorhang','drohung'],
     palette:{ skin:SKIN[0], hair:'#1a1a1a', shirt:'#1d1f29', pants:'#14151f', longHair:false, cap:false, evil:true },
     buff:{ atk:1, def:1 }, boss:true,
@@ -520,10 +548,12 @@ function load(){
     G.ensemble = d.ensemble.map(s => {
       const m = makeMember(s.id, 1);
       m.lvl = s.lvl; m.xp = s.xp;
-      m.maxHP = 26 + s.lvl*6 + m.hpV; m.atk = 8 + s.lvl*2 + m.atkV;
+      applyStats(m);
       m.hp = Math.min(s.hp, m.maxHP);
       return m;
     });
+    // nie mit komplett erschöpftem Ensemble laden (Blackout-Save)
+    if (!G.ensemble.some(m => m.hp > 0)) G.ensemble.forEach(m => m.hp = m.maxHP);
     return true;
   } catch(e){ return false; }
 }
@@ -575,13 +605,31 @@ const moonLight = new THREE.DirectionalLight('#aab4ff', 0.7);
 moonLight.position.set(-50, 80, -30);
 moonLight.castShadow = true;
 moonLight.shadow.mapSize.set(1024, 1024);
-moonLight.shadow.camera.left = -70; moonLight.shadow.camera.right = 70;
-moonLight.shadow.camera.top = 70; moonLight.shadow.camera.bottom = -70;
-scene.add(moonLight);
+moonLight.shadow.camera.left = -35; moonLight.shadow.camera.right = 35;
+moonLight.shadow.camera.top = 35; moonLight.shadow.camera.bottom = -35;
+scene.add(moonLight, moonLight.target);   // Licht folgt im Loop dem Spieler
+
+/* ---------- shared geometries & materials (kein GPU-Leak bei Respawns) ---------- */
+const geoCache = {};
+function cachedGeo(key, make){ return geoCache[key] ??= make(); }
+function boxGeo(w,h,d){ return cachedGeo(`b${w},${h},${d}`, () => new THREE.BoxGeometry(w,h,d)); }
+function sphGeo(r,ws,hs){ return cachedGeo(`s${r},${ws},${hs}`, () => new THREE.SphereGeometry(r,ws,hs)); }
+function cylGeo(rt,rb,h,s){ return cachedGeo(`c${rt},${rb},${h},${s}`, () => new THREE.CylinderGeometry(rt,rb,h,s)); }
+function coneGeo(r,h,s){ return cachedGeo(`k${r},${h},${s}`, () => new THREE.ConeGeometry(r,h,s)); }
+const basicCache = {};
+function basicMat(color){ return basicCache[color] ??= new THREE.MeshBasicMaterial({ color }); }
+const LEG_GEO = new THREE.BoxGeometry(.22,.5,.22).translate(0,-.25,0);
+const ARM_GEO = new THREE.BoxGeometry(.15,.5,.15).translate(0,-.22,0);
+function disposeModel(model){
+  // Geometrien/Toon-Materialien sind geteilt — nur die individuellen Label-Sprites freigeben
+  model.traverse(o => {
+    if (o.isSprite){ o.material.map?.dispose(); o.material.dispose(); }
+  });
+}
 
 /* ---------- person builder ---------- */
 function box(w,h,d,color,castShadow=true){
-  const m = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), toon(color));
+  const m = new THREE.Mesh(boxGeo(w,h,d), toon(color));
   m.castShadow = castShadow;
   return m;
 }
@@ -592,15 +640,13 @@ function addOutline(mesh, s=1.06){
 }
 function buildPerson(p, opts={}){
   const g = new THREE.Group();
-  const limbGeoLeg = new THREE.BoxGeometry(.22,.5,.22); limbGeoLeg.translate(0,-.25,0);
-  const limbGeoArm = new THREE.BoxGeometry(.15,.5,.15); limbGeoArm.translate(0,-.22,0);
-  const legL = new THREE.Mesh(limbGeoLeg, toon(p.pants)); legL.position.set(-.14,.5,0);
-  const legR = new THREE.Mesh(limbGeoLeg.clone(), toon(p.pants)); legR.position.set(.14,.5,0);
+  const legL = new THREE.Mesh(LEG_GEO, toon(p.pants)); legL.position.set(-.14,.5,0);
+  const legR = new THREE.Mesh(LEG_GEO, toon(p.pants)); legR.position.set(.14,.5,0);
   const torso = box(.56,.62,.32, p.shirt); torso.position.y = .81;
-  const armL = new THREE.Mesh(limbGeoArm, toon(p.shirt)); armL.position.set(-.37,1.05,0);
-  const armR = new THREE.Mesh(limbGeoArm.clone(), toon(p.shirt)); armR.position.set(.37,1.05,0);
-  const head = new THREE.Mesh(new THREE.SphereGeometry(.24,12,10), toon(p.skin)); head.position.y = 1.34;
-  const hair = new THREE.Mesh(new THREE.SphereGeometry(.265,12,10), toon(p.hair));
+  const armL = new THREE.Mesh(ARM_GEO, toon(p.shirt)); armL.position.set(-.37,1.05,0);
+  const armR = new THREE.Mesh(ARM_GEO, toon(p.shirt)); armR.position.set(.37,1.05,0);
+  const head = new THREE.Mesh(sphGeo(.24,12,10), toon(p.skin)); head.position.y = 1.34;
+  const hair = new THREE.Mesh(sphGeo(.265,12,10), toon(p.hair));
   hair.position.y = 1.42; hair.scale.y = .72;
   [legL,legR,torso,armL,armR,head].forEach(m => { m.castShadow = true; addOutline(m); });
   addOutline(hair);
@@ -610,23 +656,23 @@ function buildPerson(p, opts={}){
   }
   if (p.cap){
     hair.visible = false;
-    const cap = new THREE.Mesh(new THREE.CylinderGeometry(.26,.27,.14,12), toon('#3a3f4a'));
+    const cap = new THREE.Mesh(cylGeo(.26,.27,.14,12), toon('#3a3f4a'));
     cap.position.y = 1.52; addOutline(cap); g.add(cap);
     const brim = box(.3,.04,.18,'#3a3f4a'); brim.position.set(0,1.47,.26); g.add(brim);
   }
   if (p.beret){
     hair.scale.y = .6;
-    const beret = new THREE.Mesh(new THREE.CylinderGeometry(.3,.24,.12,12), toon('#a8232f'));
+    const beret = new THREE.Mesh(cylGeo(.3,.24,.12,12), toon('#a8232f'));
     beret.position.set(.05,1.56,0); beret.rotation.z = -.18; addOutline(beret); g.add(beret);
-    const mega = new THREE.Mesh(new THREE.ConeGeometry(.14,.34,10), toon('#e8e3d5'));
+    const mega = new THREE.Mesh(coneGeo(.14,.34,10), toon('#e8e3d5'));
     mega.position.set(.5,.78,.12); mega.rotation.z = Math.PI/2.3; addOutline(mega); g.add(mega);
   }
   if (p.evil){
     // Kapuze tief im Gesicht, nur zwei rot glühende Augen
-    const hood = new THREE.Mesh(new THREE.SphereGeometry(.3,12,10), toon(p.shirt));
+    const hood = new THREE.Mesh(sphGeo(.3,12,10), toon(p.shirt));
     hood.position.y = 1.36; hood.scale.set(1,.98,1); addOutline(hood); g.add(hood);
     for (const ex of [-.09,.09]){
-      const eye = new THREE.Mesh(new THREE.SphereGeometry(.04,8,6), new THREE.MeshBasicMaterial({ color:'#ff2030' }));
+      const eye = new THREE.Mesh(sphGeo(.04,8,6), basicMat('#ff2030'));
       eye.position.set(ex, 1.36, .32); g.add(eye);
     }
   }
@@ -825,7 +871,7 @@ let fotoLight;
     const h = 3 + rng()*3.4;
     const trunk = box(.5,.5+h*.4,.5,'#4a3526'); trunk.position.set(x, h*.2, z);
     const crown = new THREE.Mesh(new THREE.ConeGeometry(1.6 + rng()*1.2, h, 7), toon(rng()<.5?'#1f4d2e':'#28603a'));
-    crown.position.set(x, h*.62 + .4, z); crown.castShadow = true;
+    crown.position.set(x, h*.62 + .4, z);
     crown.userData.phase = rng()*9;
     ANIM.crowns.push(crown);
     ANIM.treeDots.push([x, z]);
@@ -848,7 +894,7 @@ function setPlayerCharacter(id){
     : makeMember(id, 1).palette;
   const pos = player ? player.position.clone() : new THREE.Vector3(0, 0, 18);
   const rot = player ? player.rotation.y : 0;
-  if (player) scene.remove(player);
+  if (player){ disposeModel(player); scene.remove(player); }
   player = buildPerson(pal);
   player.position.copy(pos);
   player.rotation.y = rot;
@@ -861,9 +907,19 @@ addEventListener('keydown', e => {
   keys[e.key.toLowerCase()] = true;
   if (e.key === 'Escape'){
     if (G.mode === 'world') openEnsemble();
-    else if (G.mode === 'menu') closeEnsemble();
+    else if (G.mode === 'menu' && !$('ensemble').classList.contains('hidden')) closeEnsemble();
   }
   if (e.key.toLowerCase() === 'e' && G.mode === 'world') tryInteract();
+  // Dialoge per Enter/E/Leertaste bestätigen
+  if (G.mode === 'dialog' && (e.key === 'Enter' || e.key === ' ' || e.key.toLowerCase() === 'e')){
+    e.preventDefault();
+    $('dialog-ok').click();
+  }
+  // Moves im Kampf per 1–4
+  if (G.mode === 'battle' && !B.busy && '1234'.includes(e.key)){
+    const b = $('battle-moves').children[+e.key - 1];
+    if (b && !b.disabled) b.click();
+  }
 });
 addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
 
@@ -916,10 +972,6 @@ function zoneSpot(t){
   }
   return { x:(z.x1+z.x2)/2, z:(z.z1+z.z2)/2 };
 }
-function wildLevel(type){
-  const base = type==='S' ? 2 : type==='T' ? 4 : 5;
-  return Math.min(9, base + Math.floor(Math.random()*3) + Math.floor(G.ensemble.length/4));
-}
 function spawnWanderer(){
   const caught = caughtIds();
   const now = performance.now();
@@ -929,27 +981,38 @@ function spawnWanderer(){
   if (!avail.length) return;
   const id = avail[Math.floor(Math.random()*avail.length)];
   const type = RAW[id][2];
-  const member = makeMember(id, wildLevel(type));
+  const member = makeMember(id);   // Level = echte Produktions-Anzahl
   const model = buildPerson(member.palette);
   const spot = zoneSpot(type);
   model.position.set(spot.x, 0, spot.z);
-  // Level = Jahre im Theater, direkt am Namensschild
-  model.add(makeLabel(member.name, `${member.role} · ${member.lvl} J. dabei`, TYPE_COL[member.type]));
+  model.add(makeLabel(member.name, `${member.role} · ${member.lvl} Prod.`, TYPE_COL[member.type]));
   scene.add(model);
   wanderers.push({ member, model, target: zoneSpot(type), pauseT: 0 });
 }
 function removeWanderer(w, benchMs){
+  disposeModel(w.model);
   scene.remove(w.model);
   wanderers.splice(wanderers.indexOf(w), 1);
   if (benchMs) benched.set(w.member.id, performance.now() + benchMs);
 }
+let nextSpawnTry = 0;
 function updateWanderers(dt){
-  while (wanderers.length < Math.min(9, TOTAL - G.ensemble.length)) {
-    const before = wanderers.length;
-    spawnWanderer();
-    if (wanderers.length === before) break;
+  // Spawn-Versuche drosseln statt jede Frame Sets/Arrays zu allozieren
+  if (performance.now() > nextSpawnTry){
+    nextSpawnTry = performance.now() + 500;
+    while (wanderers.length < Math.min(9, TOTAL - G.ensemble.length)) {
+      const before = wanderers.length;
+      spawnWanderer();
+      if (wanderers.length === before) break;
+    }
   }
   for (const w of wanderers){
+    // Begegnung — auch mit stehenden/winkenden Mitgliedern
+    if (G.mode === 'world' && G.encounterCooldown <= 0 &&
+        Math.hypot(w.model.position.x - player.position.x, w.model.position.z - player.position.z) < 1.5){
+      startBattle(w);
+      break;
+    }
     if (w.pauseT > 0){
       w.pauseT -= dt;
       animPerson(w.model, false, dt);
@@ -971,12 +1034,6 @@ function updateWanderers(dt){
     w.model.position.y = Math.abs(Math.sin(w.model.userData.anim.t)) * .05;
     w.model.rotation.y = Math.atan2(dx, dz);
     animPerson(w.model, true, dt);
-    // Begegnung
-    if (G.mode === 'world' && G.encounterCooldown <= 0 &&
-        Math.hypot(w.model.position.x - player.position.x, w.model.position.z - player.position.z) < 1.5){
-      startBattle(w);
-      break;
-    }
   }
 }
 
@@ -1024,7 +1081,7 @@ function hudUpdate(){
   $('hud-total').textContent = maxCatch();
   const act = activeFighter();
   $('hud-fighter').innerHTML = G.ensemble.slice(0, 8).map(m =>
-    `<div>${m === act ? '&#x2B50;' : '&#x1F3AD;'} ${m.name} <span class="chip ${m.type}">${TYPE_NAME[m.type]}</span> ${m.lvl} J. · ${m.hp}/${m.maxHP}</div>`
+    `<div>${m === act ? '&#x2B50;' : '&#x1F3AD;'} ${m.name} <span class="chip ${m.type}">${TYPE_NAME[m.type]}</span> ${m.lvl}P · ${m.hp}/${m.maxHP}</div>`
   ).join('') + (G.ensemble.length > 8 ? `<div>… +${G.ensemble.length - 8} weitere (Esc)</div>` : '');
 }
 
@@ -1131,7 +1188,7 @@ let dust;
     const spot = new THREE.SpotLight('#ffd9a0', 160, 30, .42, .55, 1.3);
     spot.position.set(sx, 9.5, 3);
     spot.target.position.set(sx, 1.5, 0);
-    spot.castShadow = true;
+    spot.castShadow = sx < 0;   // ein Schattenwerfer reicht
     battleScene.add(spot, spot.target);
     const ring = new THREE.Mesh(new THREE.CircleGeometry(1.7, 24),
       new THREE.MeshBasicMaterial({ color:'#ffdfa8', transparent:true, opacity:.3, blending:THREE.AdditiveBlending, depthWrite:false }));
@@ -1158,11 +1215,11 @@ function refreshBattleUI(){
   const e = B.enemy, m = B.mine;
   $('e-name').innerHTML = `${e.name} <span class="chip ${e.type}">${TYPE_NAME[e.type]}</span>`;
   $('e-role').textContent = e.role;
-  $('e-lvl').textContent = e.lvl + ' J. dabei';
+  $('e-lvl').textContent = e.lvl + ' Prod.';
   setBar($('e-hp'), e);
   $('p-name').innerHTML = `${m.name} <span class="chip ${m.type}">${TYPE_NAME[m.type]}</span>`;
   $('p-role').textContent = `${m.role} · ${m.hp}/${m.maxHP}`;
-  $('p-lvl').textContent = m.lvl + ' J. dabei';
+  $('p-lvl').textContent = m.lvl + ' Prod.';
   setBar($('p-hp'), m);
   $('p-xp').style.width = Math.min(100, m.xp / xpNeed(m) * 100) + '%';
 }
@@ -1189,14 +1246,16 @@ function placeBattleModels(){
   B.myModel = buildPerson(B.mine.palette, { scale:1.5 });
   B.myModel.position.set(-3.4, 1.5, 0);
   B.myModel.rotation.y = Math.PI/2.4;
+  B.myModel.userData.s = 1.5;
   B.enemyModel = buildPerson(B.enemy.palette, { scale: B.enemy.boss ? 1.7 : 1.5 });
   B.enemyModel.position.set(3.4, 1.5, 0);
   B.enemyModel.rotation.y = -Math.PI/2.4;
+  B.enemyModel.userData.s = B.enemy.boss ? 1.7 : 1.5;
   battleScene.add(B.myModel, B.enemyModel);
 }
 
 async function startBattle(wanderRef, bossInstance){
-  G.mode = 'battle';
+  G.mode = 'encounter';   // Input einfrieren, Welt weiter rendern bis der Wipe zu ist
   B.wanderRef = wanderRef;
   B.enemy = bossInstance || wanderRef.member;
   B.enemy.buff = { atk:1, def:1 };
@@ -1207,6 +1266,7 @@ async function startBattle(wanderRef, bossInstance){
   await sleep(520);
   await wipe();
   $('excl').classList.add('hidden');
+  G.mode = 'battle';
   placeBattleModels();
   B.active = true;
   $('battle-ui').classList.remove('hidden');
@@ -1241,6 +1301,7 @@ async function endBattle(){
   if (B.enemyModel){ battleScene.remove(B.enemyModel); B.enemyModel = null; }
   G.mode = 'world';
   G.encounterCooldown = 2;
+  lastInteractHint = '';
   hudUpdate(); save();
   unwipe();
 }
@@ -1252,20 +1313,94 @@ function dmgCalc(att, def, mv){
   const raw = att.atk * att.buff.atk * (mv.p/22) * eff * variance * def.buff.def;
   return { dmg: Math.max(1, Math.round(raw)), eff };
 }
-async function lunge(model, dir){
-  await tween(140, k => model.position.x += dir * .045);
-  await tween(140, k => model.position.x -= dir * .045);
-  model.position.x = dir > 0 ? -3.4 : 3.4;
+let bShake = 0;
+const flashMat = new THREE.MeshBasicMaterial({ color:'#ffffff' });
+async function dash(attModel, defModel){
+  const sx = attModel.position.x, sz = attModel.position.z;
+  const dir = defModel.position.x > sx ? 1 : -1;
+  const tx = defModel.position.x - dir*1.7;
+  await tween(170, k => {
+    attModel.position.x = sx + (tx - sx)*k*k;
+    attModel.position.y = 1.5 + Math.sin(k*Math.PI)*.7;
+  });
+  attModel.rotation.z = -dir*.3;   // Schlag-Pose
+  await sleep(70);
+  attModel.rotation.z = 0;
+  await tween(240, k => {
+    attModel.position.x = tx + (sx - tx)*k;
+    attModel.position.y = 1.5 + Math.sin(k*Math.PI)*.35;
+  });
+  attModel.position.set(sx, 1.5, sz);
+}
+async function dodge(model){
+  const z0 = model.position.z;
+  await tween(380, k => model.position.z = z0 + Math.sin(k*Math.PI)*1.1);
+  model.position.z = z0;
 }
 async function flashShake(model){
   const base = model.position.z;
   await tween(240, k => { model.position.z = base + Math.sin(k*22)*.16*(1-k); });
   model.position.z = base;
 }
+async function flashWhite(model){
+  const orig = [];
+  model.traverse(o => { if (o.isMesh && o.material !== outlineMat){ orig.push([o, o.material]); o.material = flashMat; } });
+  await sleep(90);
+  for (const [o, m] of orig) o.material = m;
+}
+function pulse(model){
+  const s = model.userData.s || 1.5;
+  tween(320, k => model.scale.setScalar(s * (1 + Math.sin(k*Math.PI)*.12)));
+}
+function impact(model, color){
+  const ring = new THREE.Mesh(cachedGeo('impact-ring', () => new THREE.RingGeometry(.12,.26,20)),
+    new THREE.MeshBasicMaterial({ color, side:THREE.DoubleSide, transparent:true, depthWrite:false }));
+  ring.position.set(model.position.x, 2.3, model.position.z + .9);
+  ring.lookAt(battleCam.position);
+  battleScene.add(ring);
+  tween(380, k => { ring.scale.setScalar(1 + k*7); ring.material.opacity = 1 - k; })
+    .then(() => { battleScene.remove(ring); ring.material.dispose(); });
+}
+function sparkle(model, color, dir = 1){
+  const x = model.position.x, z = model.position.z;
+  const g = new THREE.Group();
+  for (let i=0;i<12;i++){
+    const m = new THREE.Mesh(sphGeo(.06,6,5),
+      new THREE.MeshBasicMaterial({ color, transparent:true }));
+    m.userData.a = Math.random()*Math.PI*2;
+    m.userData.r = .4 + Math.random()*.55;
+    m.userData.h = Math.random()*1.3;
+    g.add(m);
+  }
+  battleScene.add(g);
+  return tween(750, k => {
+    for (const m of g.children){
+      const y0 = dir > 0 ? 1.4 + m.userData.h : 3.3 - m.userData.h;
+      m.position.set(x + Math.cos(m.userData.a)*m.userData.r, y0 + dir*k*1.6, z + Math.sin(m.userData.a)*m.userData.r);
+      m.material.opacity = 1 - k;
+    }
+  }).then(() => {
+    battleScene.remove(g);
+    for (const m of g.children) m.material.dispose();
+  });
+}
+function modelScreenPos(model, yOff){
+  const v = new THREE.Vector3(0, yOff, 0).applyMatrix4(model.matrixWorld).project(battleCam);
+  return { x: (v.x*.5 + .5)*innerWidth, y: (-v.y*.5 + .5)*innerHeight };
+}
+function floatText(model, text, color){
+  const p = modelScreenPos(model, 2.7);
+  const d = document.createElement('div');
+  d.className = 'float-dmg';
+  d.style.left = p.x + 'px'; d.style.top = p.y + 'px'; d.style.color = color;
+  d.textContent = text;
+  document.body.appendChild(d);
+  setTimeout(() => d.remove(), 1100);
+}
 function burst(x, y, z, color){
   const g = new THREE.Group();
   for (let i=0;i<16;i++){
-    const m = new THREE.Mesh(new THREE.BoxGeometry(.09,.09,.09), new THREE.MeshBasicMaterial({ color }));
+    const m = new THREE.Mesh(boxGeo(.09,.09,.09), basicMat(color));
     m.userData.v = new THREE.Vector3((Math.random()-.5)*4.5, Math.random()*3.5 + 1, (Math.random()-.5)*4.5);
     m.position.set(x, y, z);
     g.add(m);
@@ -1282,44 +1417,59 @@ function burst(x, y, z, color){
 async function doMove(att, def, key, attModel, defModel, mine){
   const mv = MOVES[key];
   blog(`${att.name} setzt ${mv.n} ein!`);
-  await sleep(420);
+  await sleep(380);
   if (Math.random() > (mv.acc ?? .95)){
+    await dodge(defModel);
+    floatText(defModel, 'daneben!', '#cfd6ff');
     blog('… und verfehlt das Stichwort!');
-    await sleep(650); return;
+    await sleep(600); return;
   }
   if (mv.eff === 'heal'){
     att.hp = Math.min(att.maxHP, att.hp + Math.round(att.maxHP*.38));
-    sfx.heal(); refreshBattleUI();
-    blog(`${att.name} schöpft neue Motivation!`); await sleep(650); return;
+    sfx.heal(); pulse(attModel);
+    floatText(attModel, '+ Motivation', '#7fe57a');
+    await sparkle(attModel, '#7fe57a', 1);
+    refreshBattleUI();
+    blog(`${att.name} schöpft neue Motivation!`); await sleep(450); return;
   }
   if (mv.eff === 'atkUp'){
-    att.buff.atk = 1.5; sfx.heal();
-    blog(`${att.name}s Bühnenpräsenz steigt!`); await sleep(650); return;
+    att.buff.atk = 1.5; sfx.heal(); pulse(attModel);
+    floatText(attModel, 'Präsenz ▲', '#ffd97a');
+    await sparkle(attModel, '#ffd97a', 1);
+    blog(`${att.name}s Bühnenpräsenz steigt!`); await sleep(450); return;
   }
   if (mv.eff === 'defUp'){
-    att.buff.def = .65; sfx.heal();
-    blog(`${att.name} ist jetzt schwerer zu treffen!`); await sleep(650); return;
+    att.buff.def = .65; sfx.heal(); pulse(attModel);
+    floatText(attModel, 'Deckung ▲', '#9cc8ff');
+    await sparkle(attModel, '#9cc8ff', 1);
+    blog(`${att.name} ist jetzt schwerer zu treffen!`); await sleep(450); return;
   }
   if (mv.eff === 'atkDown'){
     def.buff.atk = Math.max(.4, def.buff.atk * .65); sfx.hit();
+    floatText(defModel, 'Präsenz ▼', '#b85cc4');
+    await sparkle(defModel, '#b85cc4', -1);
     await flashShake(defModel);
-    blog(`${def.name} bekommt Lampenfieber!`); await sleep(650); return;
+    blog(`${def.name} bekommt Lampenfieber!`); await sleep(450); return;
   }
-  await lunge(attModel, mine ? 1 : -1);
+  await dash(attModel, defModel);
   sfx.hit();
   const { dmg, eff } = dmgCalc(att, def, mv);
   def.hp = Math.max(0, def.hp - dmg);
+  flashWhite(defModel);
+  impact(defModel, TYPE_COL[mv.t] || '#ffffff');
+  bShake = eff > 1 ? .5 : .28;
+  floatText(defModel, '-' + dmg, eff > 1 ? '#ffd97a' : '#ff6b5e');
   refreshBattleUI();
   await flashShake(defModel);
   if (eff > 1) blog(`Volltreffer – sehr effektiv! (${dmg})`);
   else if (eff < 1) blog(`Hmm, das zieht nicht so recht… (${dmg})`);
   else blog(`Das saß! (${dmg})`);
-  await sleep(650);
+  await sleep(600);
 }
 async function enemyTurn(){
   const e = B.enemy;
-  const atkMoves = e.moves.filter(k => MOVES[k].p > 0);
-  const utilMoves = e.moves.filter(k => !MOVES[k].p);
+  const atkMoves = e.moves.filter(k => MOVES[k].p > 0 && !MOVES[k].eff);
+  const utilMoves = e.moves.filter(k => !MOVES[k].p || MOVES[k].eff);
   const key = (utilMoves.length && Math.random() < .3) ? pick(Math.random, utilMoves) : pick(Math.random, atkMoves);
   await doMove(e, B.mine, key, B.enemyModel, B.myModel, false);
   refreshBattleUI();
@@ -1336,14 +1486,21 @@ async function gainXP(amount){
     levelUp(m);
     sfx.lvl();
     burst(-3.4, 2.5, 0, '#7fe3dc');
-    blog(`${m.name} erreicht Level ${m.lvl}!`);
+    floatText(B.myModel, '+1 Produktion ⭐', '#7fe3dc');
+    pulse(B.myModel);
+    blog(`${m.name} steht jetzt bei ${m.lvl} Produktionen!`);
     refreshBattleUI();
     await sleep(900);
   }
 }
 async function handleEnemyFaint(){
   sfx.faint();
-  await tween(450, k => { B.enemyModel.scale.setScalar((B.enemy.boss?1.7:1.5)*(1-k*.9)); B.enemyModel.rotation.z = k*.6; });
+  burst(B.enemyModel.position.x, 2, B.enemyModel.position.z, '#9aa0c8');
+  await tween(550, k => {
+    B.enemyModel.scale.setScalar((B.enemy.boss?1.7:1.5)*(1-k*.9));
+    B.enemyModel.rotation.z = k*1.1;
+    B.enemyModel.position.y = 1.5 - k*.7;
+  });
   blog(B.enemy.boss
     ? 'Logge sinkt auf die Knie. Das rote Glühen erlischt. „Es ist… vorbei."'
     : `${B.enemy.name} verbeugt sich und tritt ab!`);
@@ -1361,16 +1518,22 @@ async function handleEnemyFaint(){
 }
 async function handleMyFaint(){
   sfx.faint();
-  await tween(450, k => { B.myModel.scale.setScalar(1.5*(1-k*.9)); B.myModel.rotation.z = -k*.6; });
+  burst(B.myModel.position.x, 2, B.myModel.position.z, '#9aa0c8');
+  await tween(550, k => {
+    B.myModel.scale.setScalar(1.5*(1-k*.9));
+    B.myModel.rotation.z = -k*1.1;
+    B.myModel.position.y = 1.5 - k*.7;
+  });
   blog(`${B.mine.name} braucht eine Pause hinter der Bühne!`);
   await sleep(800);
   const alive = G.ensemble.filter(m => m.hp > 0);
   if (!alive.length){
-    await endBattle();
-    await showDialog('Blackout!', 'Das ganze Ensemble ist erschöpft…\nIhr wacht am Kaffee-&-Kuchen-Stand wieder auf. Ursula hat schon eingeschenkt.');
+    // erst heilen, dann beenden — endBattle() speichert
     G.ensemble.forEach(m => { m.hp = m.maxHP; });
     player.position.set(kaffeePos.x - 4, 0, kaffeePos.z);
-    hudUpdate(); save();
+    await endBattle();
+    await showDialog('Blackout!', 'Das ganze Ensemble ist erschöpft…\nIhr wacht am Kaffee-&-Kuchen-Stand wieder auf. Ursula hat schon eingeschenkt.');
+    hudUpdate();
     return;
   }
   await chooseSwitch(true);
@@ -1384,7 +1547,7 @@ function chooseSwitch(forced){
     for (const m of candidates){
       const b = document.createElement('button');
       b.className = 'btn';
-      b.innerHTML = `${m.name} <span class="chip ${m.type}">${TYPE_NAME[m.type]}</span> ${m.lvl} J. · ${m.hp}/${m.maxHP}`;
+      b.innerHTML = `${m.name} <span class="chip ${m.type}">${TYPE_NAME[m.type]}</span> ${m.lvl} Prod. · ${m.hp}/${m.maxHP}`;
       b.onclick = async () => {
         $('switch-modal').classList.add('hidden');
         B.mine = m;
@@ -1394,7 +1557,10 @@ function chooseSwitch(forced){
         refreshBattleUI();
         blog(`Auftritt ${m.name}!`);
         sfx.click();
-        await sleep(500);
+        B.myModel.scale.setScalar(.01);
+        await tween(300, k => B.myModel.scale.setScalar(1.5*k));
+        sparkle(B.myModel, '#f1e8d8', 1);
+        await sleep(300);
         res(true);
       };
       list.appendChild(b);
@@ -1425,7 +1591,7 @@ $('act-cast').onclick = async () => {
   B.busy = true; setMenuEnabled(false);
   blog(`Du wirfst ${B.enemy.name} das Drehbuch zu…`);
   // Buch fliegt
-  const book = new THREE.Mesh(new THREE.BoxGeometry(.5,.7,.12), toon('#f1e8d8'));
+  const book = new THREE.Mesh(boxGeo(.5,.7,.12), toon('#f1e8d8'));
   const spine = box(.06,.7,.13,'#a8232f',false); spine.position.x = -.25; book.add(spine);
   book.position.set(-3, 3, 0);
   battleScene.add(book);
@@ -1435,6 +1601,7 @@ $('act-cast').onclick = async () => {
     book.rotation.z = k*7;
   });
   battleScene.remove(book);
+  impact(B.enemyModel, '#f1e8d8');
   await tween(350, k => B.enemyModel.scale.setScalar(1.5*(1-k*.85)));
   // wackeln
   for (let i=0;i<3;i++){
@@ -1445,6 +1612,7 @@ $('act-cast').onclick = async () => {
   if (Math.random() < p){
     sfx.catchOk();
     burst(3.4, 2.5, 0, '#ffd97a');
+    floatText(B.enemyModel, 'GECASTET!', '#ffd97a');
     blog(`${B.enemy.name} unterschreibt! Willkommen im Ensemble!`);
     B.enemy.hp = Math.max(1, B.enemy.hp);
     G.ensemble.push(B.enemy);
@@ -1488,6 +1656,8 @@ $('act-flee').onclick = async () => {
   }
   blog('Du verbeugst dich und verlässt die Bühne…');
   await sleep(700);
+  // Wanderer kurz wegschicken, sonst zwingt er einen sofort wieder in den Kampf
+  if (B.wanderRef) removeWanderer(B.wanderRef, 10000);
   B.busy = false;
   await endBattle();
 };
@@ -1509,7 +1679,7 @@ function openEnsemble(){
     card.innerHTML = `
       <div class="nm">${m.name} <span class="chip ${m.type}">${TYPE_NAME[m.type]}</span></div>
       <div class="rl">${m.role}</div>
-      <div class="st">${m.lvl} Jahre dabei · &#x2764; ${m.hp}/${m.maxHP} · &#x2694; ${m.atk}</div>
+      <div class="st">${m.lvl} Produktionen · &#x2764; ${m.hp}/${m.maxHP} · &#x2694; ${m.atk}</div>
       <div class="st">&#x2728; ${MOVES[m.moves[0]].n}</div>
       <div class="hpbar" style="margin-top:5px"><i style="width:${hpPct(m)}%;background:${hpPct(m)>50?'#4caf6e':hpPct(m)>22?'#e8b54a':'#d9483b'}"></i></div>`;
     card.onclick = () => {
@@ -1608,12 +1778,13 @@ function buildStarterCards(){
     div.innerHTML = `
       <div class="swatch" style="background:${SHIRT[type][0]}"></div>
       <h3>${n}</h3>
-      <div class="role">${role}</div>
+      <div class="role">${role} · ${RAW[idx][3]} Prod.</div>
       <span class="chip ${type}">${TYPE_NAME[type]}</span>
       <p>&#x2728; ${SIG[idx].n}<br>${TYPE_BLURB[type]}</p>`;
     div.onclick = async () => {
       sfx.catchOk();
-      const m = makeMember(idx, 5);
+      G.ensemble = []; G.bossDown = false;   // neuer Run beginnt erst jetzt wirklich
+      const m = makeMember(idx);
       G.ensemble.push(m);
       $('starter').classList.add('hidden');
       await enterWorld();
@@ -1638,14 +1809,25 @@ async function enterWorld(){
 }
 $('btn-new').onclick = () => {
   audioInit(); sfx.click();
-  localStorage.removeItem(SAVE_KEY);
-  G.ensemble = []; G.bossDown = false;
+  // Save wird erst beim ersten save() nach der Starterwahl überschrieben
   $('title').classList.add('hidden');
   buildCharSelect();
   $('charsel').classList.remove('hidden');
 };
+$('charsel-back').onclick = () => {
+  sfx.click();
+  $('charsel').classList.add('hidden');
+  $('title').classList.remove('hidden');
+};
+$('starter-back').onclick = () => {
+  sfx.click();
+  $('starter').classList.add('hidden');
+  $('charsel').classList.remove('hidden');
+};
 $('btn-continue').onclick = async () => {
   audioInit(); sfx.click();
+  load();   // Stand neu laden, falls zwischendurch in "Neues Spiel" geschnuppert wurde
+  setPlayerCharacter(G.playerId);
   await enterWorld();
 };
 
@@ -1653,6 +1835,7 @@ $('btn-continue').onclick = async () => {
    main loop
 ================================================================ */
 const clock = new THREE.Clock();
+const CAM_V = new THREE.Vector3();
 let lastInteractHint = '';
 let nextFlash = 9;
 function loop(){
@@ -1662,8 +1845,8 @@ function loop(){
 
   if (G.mode === 'battle' || (B.active)){
     // Idle-Bob im Kampf
-    if (B.myModel){ B.myModel.position.y = 1.5 + Math.sin(t*2.2)*.04; animPerson(B.myModel, false, dt); }
-    if (B.enemyModel){ B.enemyModel.position.y = 1.5 + Math.sin(t*2.2 + 2)*.04; animPerson(B.enemyModel, false, dt); }
+    if (B.myModel){ if (!B.busy) B.myModel.position.y = 1.5 + Math.sin(t*2.2)*.04; animPerson(B.myModel, false, dt); }
+    if (B.enemyModel){ if (!B.busy) B.enemyModel.position.y = 1.5 + Math.sin(t*2.2 + 2)*.04; animPerson(B.enemyModel, false, dt); }
     const dp = dust.geometry.attributes.position;
     for (let i=0;i<dp.count;i++){
       dp.setY(i, dp.getY(i) - dt*.25);
@@ -1671,8 +1854,9 @@ function loop(){
     }
     dp.needsUpdate = true;
     // Kamera schwebt leicht, Vorhang wogt
-    battleCam.position.x = Math.sin(t*.25)*.9;
-    battleCam.position.y = 4.6 + Math.sin(t*.4)*.25;
+    bShake = Math.max(0, bShake - dt*1.6);
+    battleCam.position.x = Math.sin(t*.25)*.9 + (Math.random()-.5)*bShake;
+    battleCam.position.y = 4.6 + Math.sin(t*.4)*.25 + (Math.random()-.5)*bShake;
     battleCam.lookAt(0, 1.6, 0);
     for (const s of ANIM.bCurtains) s.rotation.y = Math.sin(t*1.2 + s.userData.i*.7)*.06;
     renderer.render(battleScene, battleCam);
@@ -1728,14 +1912,17 @@ function loop(){
     animPerson(player, false, dt);
   }
 
-  // Kamera folgt (Orbit)
+  // Kamera folgt (Orbit) — Scratch-Vector statt Allokation pro Frame
   const hDist = Math.cos(camPitch) * camDist;
-  const camTarget = new THREE.Vector3(
+  CAM_V.set(
     player.position.x + Math.sin(camYaw) * hDist,
     Math.sin(camPitch) * camDist,
     player.position.z + Math.cos(camYaw) * hDist);
-  camera.position.lerp(camTarget, 1 - Math.pow(.0004, dt));
+  camera.position.lerp(CAM_V, 1 - Math.pow(.0004, dt));
   camera.lookAt(player.position.x, 1.4, player.position.z);
+  // Schattenkamera dem Spieler hinterherziehen (kleines, scharfes Frustum)
+  moonLight.position.set(player.position.x - 50, 80, player.position.z - 30);
+  moonLight.target.position.set(player.position.x, 0, player.position.z);
 
   renderer.render(scene, camera);
 }
