@@ -1,0 +1,1754 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>THEATERMON · Kolpingtheater Ramsen Edition</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Special+Elite&family=Schoolbell&family=Caveat:wght@600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#f7f1e3; --paper2:#efe5cf; --ink:#2b2421;
+  --red:#a8232f; --red-dark:#6f1825; --gold:#e8b54a;
+  --s-col:#e4572e; --t-col:#4f86c6; --k-col:#b85cc4; --r-col:#e8b54a;
+  --shadow: 3px 4px 0 rgba(43,36,33,.85);
+}
+*{box-sizing:border-box; margin:0; padding:0;}
+html,body{width:100%;height:100%;overflow:hidden;background:#141831;}
+body{font-family:'Schoolbell',cursive;color:var(--ink);}
+canvas{display:block;}
+#game{position:fixed;inset:0;}
+
+/* ---------- hand-drawn building blocks ---------- */
+.paper{
+  background:var(--paper);
+  border:2.5px solid var(--ink);
+  border-radius:255px 15px 225px 15px/15px 225px 15px 255px;
+  box-shadow:var(--shadow);
+}
+.btn{
+  font-family:'Schoolbell',cursive;font-size:19px;color:var(--ink);
+  background:var(--paper);border:2.5px solid var(--ink);cursor:pointer;
+  border-radius:15px 225px 15px 255px/255px 15px 225px 15px;
+  padding:8px 18px;box-shadow:var(--shadow);
+  transition:transform .08s ease, box-shadow .08s ease;
+}
+.btn:hover{transform:translate(-1px,-2px) rotate(-.6deg);box-shadow:5px 6px 0 rgba(43,36,33,.85);background:#fffaf0;}
+.btn:active{transform:translate(2px,3px);box-shadow:1px 1px 0 rgba(43,36,33,.85);}
+.btn:disabled{opacity:.45;cursor:default;transform:none;}
+.btn.primary{background:var(--red);color:var(--paper);}
+.btn.primary:hover{background:#c12c39;}
+.chip{display:inline-block;font-size:13px;padding:0 9px;border:2px solid var(--ink);border-radius:99px;color:#fff;vertical-align:middle;}
+.chip.S{background:var(--s-col);} .chip.T{background:var(--t-col);} .chip.K{background:var(--k-col);} .chip.R{background:var(--r-col);color:var(--ink);} .chip.W{background:#16a085;}
+
+.hpbar{height:14px;border:2.5px solid var(--ink);border-radius:99px;background:#d8cdb4;overflow:hidden;position:relative;}
+.hpbar > i{display:block;height:100%;background:#4caf6e;border-radius:99px;transition:width .35s ease, background .35s;}
+.xpbar{height:7px;border:2px solid var(--ink);border-radius:99px;background:#d8cdb4;overflow:hidden;margin-top:4px;}
+.xpbar > i{display:block;height:100%;background:var(--t-col);transition:width .3s;}
+
+/* ---------- layers ---------- */
+.layer{position:fixed;inset:0;z-index:10;display:flex;align-items:center;justify-content:center;}
+.hidden{display:none !important;}
+
+/* title */
+#title{background:
+  radial-gradient(ellipse at 50% 115%, rgba(232,181,74,.28), transparent 55%),
+  radial-gradient(ellipse at 15% -10%, rgba(168,35,47,.30), transparent 50%),
+  #141831;
+  flex-direction:column;gap:0;z-index:50;}
+#title .stars{position:absolute;inset:0;pointer-events:none;}
+#title h1{
+  font-family:'Special Elite',monospace;color:var(--paper);
+  font-size:clamp(44px,9vw,104px);letter-spacing:.04em;line-height:.95;
+  text-shadow:0 0 26px rgba(232,181,74,.5), 4px 5px 0 var(--red-dark);
+  transform:rotate(-1.6deg);
+}
+#title .sub{
+  font-family:'Caveat',cursive;font-size:clamp(20px,3vw,34px);color:var(--gold);
+  transform:rotate(-1deg);margin-top:6px;
+}
+#title .blurb{color:#cfd3ec;font-size:17px;max-width:560px;text-align:center;margin-top:22px;line-height:1.5;}
+#title .actions{margin-top:30px;display:flex;gap:14px;}
+#title .foot{position:absolute;bottom:14px;font-size:14px;color:#8a8fb8;}
+.curtain{position:absolute;top:0;bottom:0;width:13vw;min-width:90px;pointer-events:none;
+  background:repeating-linear-gradient(90deg,#8e1f2f 0 22px,#6f1825 22px 44px);
+  box-shadow:inset 0 -60px 80px rgba(0,0,0,.55);}
+.curtain.l{left:0;border-right:4px solid #4a0f18;}
+.curtain.r{right:0;border-left:4px solid #4a0f18;}
+
+/* character select */
+#charsel{z-index:49;background:rgba(12,14,30,.82);backdrop-filter:blur(3px);}
+#charsel .box{width:min(94vw,840px);max-height:88vh;padding:22px;display:flex;flex-direction:column;}
+#charsel h2{font-family:'Special Elite',monospace;font-size:28px;}
+#charsel .sub2{font-family:'Caveat',cursive;font-size:19px;color:#6b5d4f;margin:4px 0 12px;}
+#charsel .grid{overflow-y:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(195px,1fr));gap:10px;padding:4px;}
+
+/* starter pick */
+#starter{flex-direction:column;gap:24px;background:rgba(12,14,30,.82);backdrop-filter:blur(3px);z-index:49;}
+#starter h2{font-family:'Special Elite',monospace;color:var(--paper);font-size:30px;transform:rotate(-1deg);}
+#starter .cards{display:flex;gap:20px;flex-wrap:wrap;justify-content:center;}
+.starter-card{width:215px;padding:16px;text-align:center;cursor:pointer;transition:transform .12s;}
+.starter-card:hover{transform:rotate(1.2deg) translateY(-6px);}
+.starter-card h3{font-size:24px;}
+.starter-card .role{font-family:'Caveat',cursive;font-size:20px;color:#6b5d4f;}
+.starter-card p{font-size:15px;margin-top:8px;line-height:1.35;}
+.starter-card .swatch{width:54px;height:54px;border-radius:50%;border:2.5px solid var(--ink);margin:10px auto 4px;}
+
+/* HUD */
+#hud{position:fixed;top:14px;left:14px;z-index:11;padding:10px 16px;min-width:210px;}
+#hud .count{font-size:20px;}
+#hud .fighter{margin-top:6px;font-size:16px;}
+#hint{position:fixed;bottom:14px;left:14px;z-index:11;padding:6px 14px;font-size:15px;color:#3c352f;}
+#interact{position:fixed;bottom:80px;left:50%;transform:translateX(-50%) rotate(-1deg);z-index:11;padding:8px 18px;font-size:18px;}
+#mute{position:fixed;top:14px;right:14px;z-index:12;font-size:17px;padding:6px 12px;}
+
+/* dialog */
+#dialog{z-index:30;background:rgba(12,14,30,.45);}
+#dialog .box{max-width:540px;width:min(92vw,540px);padding:22px 26px;transform:rotate(-.5deg);}
+#dialog .speaker{font-family:'Special Elite',monospace;font-size:18px;color:var(--red);margin-bottom:6px;}
+#dialog .text{font-size:19px;line-height:1.45;white-space:pre-line;}
+#dialog .row{margin-top:16px;display:flex;gap:10px;justify-content:flex-end;}
+
+/* battle */
+#battle-ui{position:fixed;inset:0;z-index:20;pointer-events:none;}
+#battle-ui .card{position:absolute;padding:12px 18px;min-width:240px;pointer-events:auto;}
+#enemy-card{top:18px;left:18px;transform:rotate(-1deg);}
+#player-card{right:18px;bottom:196px;transform:rotate(.8deg);}
+#battle-ui .name{font-size:21px;}
+#battle-ui .lvl{float:right;font-family:'Caveat',cursive;font-size:19px;}
+#battle-ui .role{font-family:'Caveat',cursive;font-size:17px;color:#6b5d4f;margin-bottom:5px;}
+#battle-menu{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);z-index:21;
+  width:min(96vw,720px);padding:14px 18px;}
+#battle-log{font-size:19px;min-height:28px;margin-bottom:10px;}
+#battle-moves{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+#battle-moves .btn{text-align:left;font-size:17px;padding:6px 14px;}
+#battle-moves .btn small{color:#6b5d4f;float:right;}
+#battle-actions{display:flex;gap:8px;margin-top:8px;}
+#battle-actions .btn{flex:1;font-size:16px;padding:6px 8px;}
+
+/* ensemble menu */
+#ensemble{z-index:35;background:rgba(12,14,30,.6);}
+#ensemble .box{width:min(94vw,820px);max-height:86vh;padding:22px;display:flex;flex-direction:column;}
+#ensemble h2{font-family:'Special Elite',monospace;font-size:26px;margin-bottom:4px;}
+#ensemble .sub2{font-family:'Caveat',cursive;font-size:19px;color:#6b5d4f;margin-bottom:12px;}
+#ensemble .grid{overflow-y:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(225px,1fr));gap:12px;padding:4px;}
+.member-card{padding:10px 14px;cursor:pointer;background:var(--paper2);}
+.member-card:hover{background:#fffaf0;}
+.member-card .nm{font-size:19px;}
+.member-card .rl{font-family:'Caveat',cursive;font-size:16px;color:#6b5d4f;}
+.member-card .st{font-size:13px;margin-top:3px;color:#3c352f;}
+.member-card.active-f{outline:3px dashed var(--red);outline-offset:2px;}
+#ensemble .row{margin-top:14px;display:flex;gap:10px;justify-content:space-between;align-items:center;}
+
+/* switch modal */
+#switch-modal{z-index:40;background:rgba(12,14,30,.6);}
+#switch-modal .box{width:min(92vw,520px);padding:20px;}
+#switch-modal h3{font-family:'Special Elite',monospace;margin-bottom:10px;}
+#switch-list{display:flex;flex-direction:column;gap:8px;max-height:50vh;overflow-y:auto;}
+#switch-list .btn{text-align:left;}
+
+/* credits */
+#credits{z-index:45;background:rgba(10,11,24,.93);flex-direction:column;}
+#credits .scroll{max-height:72vh;overflow-y:auto;text-align:center;padding:20px 50px;}
+#credits h1{font-family:'Special Elite',monospace;color:var(--gold);font-size:46px;text-shadow:3px 4px 0 var(--red-dark);transform:rotate(-1deg);}
+#credits h2{font-family:'Caveat',cursive;color:var(--paper);font-size:26px;margin:6px 0 22px;}
+#credits .grp{font-family:'Special Elite',monospace;color:var(--red);font-size:19px;margin:18px 0 6px;letter-spacing:.1em;}
+#credits .nm{color:var(--paper);font-size:19px;line-height:1.5;}
+#credits .nm span{color:#9aa0c8;font-family:'Caveat',cursive;font-size:17px;}
+#credits .btn{margin-top:18px;}
+
+/* iris wipe */
+#wipe{position:fixed;inset:0;z-index:60;pointer-events:none;background:#0c0e1e;
+  clip-path:circle(0% at 50% 50%);transition:clip-path .55s ease-in;}
+#wipe.on{clip-path:circle(75% at 50% 50%);}
+
+/* encounter ! */
+#excl{position:fixed;top:16%;left:50%;z-index:55;pointer-events:none;
+  font-family:'Special Elite',monospace;font-size:90px;color:var(--paper);
+  text-shadow:5px 5px 0 var(--red-dark);
+  animation:pop .45s ease;transform:translateX(-50%) rotate(-5deg);}
+@keyframes pop{0%{transform:translateX(-50%) scale(0) rotate(-5deg);}70%{transform:translateX(-50%) scale(1.3) rotate(-5deg);}100%{transform:translateX(-50%) scale(1) rotate(-5deg);}}
+
+/* minimap */
+#minimap{position:fixed;top:66px;right:14px;z-index:11;border:2.5px solid var(--ink);
+  border-radius:50%;box-shadow:var(--shadow);background:#1c2415;}
+
+@keyframes floaty{0%,100%{transform:translateY(0) rotate(-1.6deg);}50%{transform:translateY(-7px) rotate(-1.6deg);}}
+#title h1{animation:floaty 4s ease-in-out infinite;}
+</style>
+</head>
+<body>
+<div id="game"></div>
+<div id="wipe"></div>
+<div id="excl" class="hidden">!</div>
+<canvas id="minimap" class="hidden" width="180" height="180"></canvas>
+
+<!-- ============ TITLE ============ -->
+<div id="title" class="layer">
+  <div class="curtain l"></div><div class="curtain r"></div>
+  <h1>THEATERMON</h1>
+  <div class="sub">~ Kolpingtheater Ramsen Edition ~</div>
+  <div class="blurb">Kurz vor der Premiere von <b style="color:var(--gold)">CREEPSHOW (2026)</b>:
+    <b>Logge</b>, einst Teil des Teams, ist der Dunkelheit verfallen. Er hat die Plakate zerrissen, die Bühnenpläne gestohlen –
+    und schwört, dass der letzte Vorhang fällt. <b>Für immer.</b> Caste das Ensemble und halte ihn auf.</div>
+  <div class="actions">
+    <button id="btn-continue" class="btn primary hidden">Weiterspielen</button>
+    <button id="btn-new" class="btn">Bühne frei! (Neues Spiel)</button>
+  </div>
+  <div class="foot">frei nach kolpingtheater-ramsen.de · WASD laufen · E reden · Esc Ensemble</div>
+</div>
+
+<!-- ============ CHARSEL ============ -->
+<div id="charsel" class="layer hidden">
+  <div class="box paper">
+    <h2>Wen spielst du?</h2>
+    <div class="sub2">Dein Charakter zieht los, um das Ensemble zu retten. Alle anderen bleiben castbar.</div>
+    <div class="grid" id="charsel-grid"></div>
+  </div>
+</div>
+
+<!-- ============ STARTER ============ -->
+<div id="starter" class="layer hidden">
+  <h2>Wer begleitet dich zuerst?</h2>
+  <div class="cards" id="starter-cards"></div>
+</div>
+
+<!-- ============ HUD ============ -->
+<div id="hud" class="paper hidden">
+  <div class="count">Ensemble: <b id="hud-count">0</b> / <span id="hud-total">38</span></div>
+  <div class="fighter" id="hud-fighter"></div>
+</div>
+<div id="hint" class="paper hidden">WASD laufen · Maus zieht Kamera · E interagieren · Esc Ensemble</div>
+<button id="mute" class="btn hidden">&#x1F50A;</button>
+<div id="interact" class="paper hidden"></div>
+
+<!-- ============ DIALOG ============ -->
+<div id="dialog" class="layer hidden">
+  <div class="box paper">
+    <div class="speaker" id="dialog-speaker"></div>
+    <div class="text" id="dialog-text"></div>
+    <div class="row">
+      <button class="btn hidden" id="dialog-no">Lieber nicht</button>
+      <button class="btn primary" id="dialog-ok">Weiter</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ BATTLE ============ -->
+<div id="battle-ui" class="hidden">
+  <div class="card paper" id="enemy-card">
+    <span class="lvl" id="e-lvl"></span>
+    <div class="name" id="e-name"></div>
+    <div class="role" id="e-role"></div>
+    <div class="hpbar"><i id="e-hp"></i></div>
+  </div>
+  <div class="card paper" id="player-card">
+    <span class="lvl" id="p-lvl"></span>
+    <div class="name" id="p-name"></div>
+    <div class="role" id="p-role"></div>
+    <div class="hpbar"><i id="p-hp"></i></div>
+    <div class="xpbar"><i id="p-xp"></i></div>
+  </div>
+</div>
+<div id="battle-menu" class="paper hidden">
+  <div id="battle-log">…</div>
+  <div id="battle-moves"></div>
+  <div id="battle-actions">
+    <button class="btn" id="act-cast">&#x1F4D6; Casting</button>
+    <button class="btn" id="act-switch">&#x1F501; Wechsel</button>
+    <button class="btn" id="act-flee">&#x1F3C3; Abgang</button>
+  </div>
+</div>
+
+<!-- ============ ENSEMBLE ============ -->
+<div id="ensemble" class="layer hidden">
+  <div class="box paper">
+    <h2>Besetzungsliste</h2>
+    <div class="sub2" id="ens-sub">Klick auf eine Karte, um sie nach vorne zu holen (erste Reihe spielt).</div>
+    <div class="grid" id="ens-grid"></div>
+    <div class="row">
+      <button class="btn" id="ens-reset">Spielstand löschen</button>
+      <button class="btn primary" id="ens-close">Schließen (Esc)</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ SWITCH ============ -->
+<div id="switch-modal" class="layer hidden">
+  <div class="box paper">
+    <h3 id="switch-title">Wen schickst du auf die Bühne?</h3>
+    <div id="switch-list"></div>
+  </div>
+</div>
+
+<!-- ============ CREDITS ============ -->
+<div id="credits" class="layer hidden">
+  <div class="scroll" id="credits-scroll"></div>
+  <button class="btn primary" id="credits-close">Vorhang! (weiterspielen)</button>
+</div>
+
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
+</script>
+<script type="module">
+import * as THREE from 'three';
+
+/* ================================================================
+   helpers
+================================================================ */
+const $ = id => document.getElementById(id);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+function tween(ms, fn){
+  return new Promise(res => {
+    const t0 = performance.now();
+    (function step(t){
+      const k = Math.min(1, (t - t0) / ms);
+      fn(k);
+      if (k < 1) requestAnimationFrame(step); else res();
+    })(t0);
+  });
+}
+function hashStr(s){ let h = 1779033703; for (let i=0;i<s.length;i++){ h = Math.imul(h ^ s.charCodeAt(i), 3432918353); h = (h<<13)|(h>>>19);} return h>>>0; }
+function mulberry(seed){ return function(){ seed|=0; seed = seed+0x6D2B79F5|0; let t = Math.imul(seed^(seed>>>15),1|seed); t = t+Math.imul(t^(t>>>7),61|t)^t; return ((t^(t>>>14))>>>0)/4294967296; }; }
+const pick = (rng, arr) => arr[Math.floor(rng()*arr.length)];
+
+/* ================================================================
+   audio (tiny synth)
+================================================================ */
+let AC = null, muted = false;
+function audioInit(){ if(!AC) AC = new (window.AudioContext||window.webkitAudioContext)(); }
+function beep(freq, dur=0.09, type='square', vol=0.05, when=0){
+  if (muted || !AC) return;
+  const o = AC.createOscillator(), g = AC.createGain();
+  o.type = type; o.frequency.value = freq;
+  g.gain.setValueAtTime(vol, AC.currentTime + when);
+  g.gain.exponentialRampToValueAtTime(0.001, AC.currentTime + when + dur);
+  o.connect(g); g.connect(AC.destination);
+  o.start(AC.currentTime + when); o.stop(AC.currentTime + when + dur + 0.02);
+}
+const sfx = {
+  click(){ beep(620, .06, 'square', .04); },
+  hit(){ beep(160, .12, 'sawtooth', .07); beep(110, .14, 'sawtooth', .05, .04); },
+  heal(){ [440,550,660].forEach((f,i)=>beep(f,.09,'triangle',.05,i*.08)); },
+  faint(){ [300,240,180,120].forEach((f,i)=>beep(f,.1,'square',.05,i*.07)); },
+  catchOk(){ [523,659,784,1046].forEach((f,i)=>beep(f,.12,'triangle',.06,i*.09)); },
+  catchNo(){ beep(220,.18,'sawtooth',.05); },
+  lvl(){ [523,659,784,880,1046].forEach((f,i)=>beep(f,.1,'square',.045,i*.07)); },
+  encounter(){ [392,392,330,392].forEach((f,i)=>beep(f,.09,'square',.05,i*.1)); },
+  fanfare(){ [523,523,523,659,784,1046].forEach((f,i)=>beep(f,.14,'triangle',.07,i*.13)); },
+};
+$('mute').addEventListener('click', () => { muted = !muted; $('mute').innerHTML = muted ? '&#x1F507;' : '&#x1F50A;'; });
+
+/* ================================================================
+   data: types, moves, team (kolpingtheater-ramsen.de/team)
+================================================================ */
+const TYPE_NAME = { S:'Schauspiel', T:'Technik', K:'Kostüm', R:'Regie', W:'Website' };
+function typeEff(att, def){
+  if (att==='R' || att==='W') return 1.25;
+  if (att==='T'&&def==='S' || att==='S'&&def==='K' || att==='K'&&def==='T') return 1.6;
+  if (def==='T'&&att==='S' || def==='S'&&att==='K' || def==='K'&&att==='R') return 1;
+  if (att==='S'&&def==='T' || att==='K'&&def==='S' || att==='T'&&def==='K') return 0.65;
+  return 1;
+}
+const MOVES = {
+  monolog:    { n:'Dramatischer Monolog', t:'S', p:26, acc:.92 },
+  impro:      { n:'Improvisation',        t:'S', p:18, acc:1 },
+  stichwort:  { n:'Stichwort geben',      t:'S', p:12, acc:1 },
+  lampenfieber:{n:'Lampenfieber',         t:'S', p:0,  acc:1, eff:'atkDown' },
+  ovation:    { n:'Standing Ovation',     t:'S', p:0,  acc:1, eff:'heal' },
+  blackout:   { n:'Blackout',             t:'T', p:26, acc:.9 },
+  nebel:      { n:'Nebelmaschine',        t:'T', p:14, acc:1, eff:'atkDown' },
+  feedback:   { n:'Feedback-Pfeifen',     t:'T', p:20, acc:.95 },
+  soundcheck: { n:'Soundcheck',           t:'T', p:0,  acc:1, eff:'atkUp' },
+  followspot: { n:'Verfolger-Spot',       t:'T', p:16, acc:1 },
+  maskenball: { n:'Maskenball',           t:'K', p:24, acc:.92 },
+  nadelstich: { n:'Nadelstich',           t:'K', p:14, acc:1 },
+  fundus:     { n:'Fundus-Lawine',        t:'K', p:32, acc:.7 },
+  anprobe:    { n:'Anprobe',              t:'K', p:0,  acc:1, eff:'heal' },
+  kostuem:    { n:'Kostümwechsel',        t:'K', p:0,  acc:1, eff:'defUp' },
+  regie1:     { n:'Regieanweisung',       t:'R', p:24, acc:.95 },
+  regie2:     { n:'„Noch mal von vorn!“', t:'R', p:30, acc:.85 },
+  generalprobe:{n:'Generalprobe',         t:'R', p:0,  acc:1, eff:'atkUp' },
+  striche:    { n:'Strichfassung',        t:'R', p:18, acc:1 },
+  absage:     { n:'Eiskalte Absage',      t:'W', p:30, acc:.85 },
+  sabotage:   { n:'Sabotage',             t:'W', p:24, acc:.95 },
+  vorhang:    { n:'„Vorhang. Für immer."',t:'W', p:18, acc:1 },
+  drohung:    { n:'Finstere Drohung',     t:'W', p:0,  acc:1, eff:'atkDown' },
+};
+// Signature-Move pro Rolle (Index = RAW-Index)
+const SIG = [
+  { n:'Drusillas Giftblick',     t:'S', p:22, acc:.95 },
+  { n:'Lucys Lächeln',           t:'S', p:0,  acc:1, eff:'atkDown' },
+  { n:'Sumpf-Standpauke',        t:'S', p:24, acc:.9 },
+  { n:'Sprung ins Rampenlicht',  t:'S', p:18, acc:1 },
+  { n:'Karls Konter',            t:'S', p:20, acc:.95 },
+  { n:'Brunos Bärenumarmung',    t:'S', p:26, acc:.85 },
+  { n:'Viktors Verwirrspiel',    t:'S', p:0,  acc:1, eff:'atkDown' },
+  { n:'Mottenflattern',          t:'S', p:18, acc:1 },
+  { n:'Doppelrolle',             t:'S', p:0,  acc:1, eff:'atkUp' },
+  { n:'Perfekter Einsatz',       t:'S', p:18, acc:1 },
+  { n:'Fionas Funkeln',          t:'S', p:0,  acc:1, eff:'heal' },
+  { n:'Spontaner Szenenklau',    t:'S', p:20, acc:.95 },
+  { n:'Adliges Dekret',          t:'S', p:26, acc:.9 },
+  { n:'Suzies Schlagfertigkeit', t:'S', p:20, acc:1 },
+  { n:'Maximale Gestik',         t:'S', p:18, acc:1 },
+  { n:'Noch maximalere Gestik',  t:'S', p:20, acc:.95 },
+  { n:'Felias Wirbelwind',       t:'S', p:18, acc:1 },
+  { n:'Pharaonenfluch',          t:'S', p:24, acc:.9 },
+  { n:'Praktikanten-Eifer',      t:'S', p:0,  acc:1, eff:'atkUp' },
+  { n:'Eiserne Probe',           t:'S', p:0,  acc:1, eff:'defUp' },
+  { n:'Stilles Servieren',       t:'S', p:0,  acc:1, eff:'heal' },
+  { n:'Mias Mut',                t:'S', p:0,  acc:1, eff:'atkUp' },
+  { n:'Claras Klartext',         t:'S', p:20, acc:1 },
+  { n:'Schniebli-Schnauze',      t:'S', p:22, acc:.95 },
+  { n:'Jacques’ Eleganz',        t:'S', p:0,  acc:1, eff:'defUp' },
+  { n:'Chorische Attacke',       t:'S', p:18, acc:1 },
+  { n:'Düstere Diagnose',        t:'S', p:24, acc:.9 },
+  { n:'Nähnadel-Sturm',          t:'K', p:22, acc:.95 },
+  { n:'Szenen-Umschnitt',        t:'T', p:20, acc:.95 },
+  { n:'Gleißender Spot',         t:'T', p:24, acc:.9 },
+  { n:'Stroboskop',              t:'T', p:0,  acc:1, eff:'atkDown' },
+  { n:'Lichtkegel-Falle',        t:'T', p:18, acc:1 },
+  { n:'Kulissenschieber',        t:'T', p:20, acc:.95 },
+  { n:'Blitzlichtgewitter',      t:'T', p:22, acc:.9 },
+  { n:'Requisiten-Wurf',         t:'T', p:18, acc:1 },
+  { n:'Umbau im Dunkeln',        t:'T', p:0,  acc:1, eff:'defUp' },
+  { n:'Ohrenbetäubende Rückkopplung', t:'T', p:24, acc:.85 },
+  { n:'Sanfte Einspielmusik',    t:'T', p:0,  acc:1, eff:'heal' },
+];
+SIG.forEach((mv, i) => MOVES['sig' + i] = mv);
+const MOVE_POOL = {
+  S:['monolog','impro','stichwort','lampenfieber','ovation'],
+  T:['blackout','nebel','feedback','soundcheck','followspot'],
+  K:['maskenball','nadelstich','fundus','anprobe','kostuem'],
+};
+// [name, rolle, typ] — kompletter Cast & Crew (ohne Logge=Spieler, Sebastian=Boss)
+const RAW = [
+  ['Carina','Drusilla','S'],['Elena','Lucy','S'],['Fernanda','Tante Heideltraut','S'],
+  ['Fynn','Ensemble','S'],['Hendrik','Karl','S'],['Jakob','Bruno','S'],
+  ['Jonas','Vetter Viktor','S'],['Jule','Motte','S'],['Julian','Ensemble','S'],
+  ['Lena','Ensemble','S'],['Lina','Fiona','S'],['Lina K.','Ensemble','S'],
+  ['Louis','Graf Thaddäus','S'],['Marcella','Suzie','S'],['Max','Ensemble','S'],
+  ['Maximilian','Ensemble','S'],['Nela','Felia','S'],['Nele','Prinzessin Iset','S'],
+  ['Niko','Praktikant Emil','S'],['Nora','Ensemble','S'],['Raphael','Diener','S'],
+  ['Sophie','Mia','S'],['Theresa','Clara','S'],['Till','Herr Schniebli','S'],
+  ['Tobias','Jacques','S'],['Vanessa','Ensemble','S'],['Yunus','Dr. Adrian Düsterwald','S'],
+  ['Cathrin','Kostüme','K'],['Christian','Bühnen- & Videotechnik','T'],
+  ['Daniel','Lichttechnik','T'],['Florian','Lichttechnik','T'],['Jonas','Lichttechnik','T'],
+  ['Julian','Bühnentechnik','T'],['Leo','Bühnentechnik & Foto','T'],['Philipp','Bühnentechnik','T'],
+  ['Maren','Bühnentechnik','T'],['Wolfgang','Tontechnik','T'],['Ursula','Tontechnik','T'],
+];
+const TOTAL = RAW.length; // 38
+
+const SKIN = ['#f1c9a5','#e0ac7e','#c68863','#8d5a3b'];
+const HAIR = ['#2b2421','#5b3a1e','#8a5a2b','#c9912e','#d8d3c4','#7a2f1d'];
+const SHIRT = {
+  S:['#e4572e','#d33f49','#f2a541','#c75146','#e86a92'],
+  T:['#4f86c6','#3c6997','#5fa8d3','#34547a','#48929b'],
+  K:['#b85cc4','#9b5de5','#d264b6','#7d4fb2','#c86bfa'],
+  R:['#222222'],
+};
+function makeMember(id, lvl){
+  const [name, role, type] = RAW[id];
+  const rng = mulberry(hashStr(name + role));
+  const pool = MOVE_POOL[type].slice();
+  // Signature-Move der Rolle + 3 aus dem Typ-Pool
+  const moves = ['sig' + id];
+  while (moves.length < 4 && pool.length){
+    const i = Math.floor(rng()*pool.length);
+    moves.push(pool.splice(i,1)[0]);
+  }
+  const hpV = Math.floor(rng()*8), atkV = Math.floor(rng()*4);
+  const m = {
+    id, name, role, type, lvl,
+    xp: 0,
+    maxHP: 26 + lvl*6 + hpV, atk: 8 + lvl*2 + atkV,
+    hpV, atkV, moves,
+    palette: {
+      skin: pick(rng, SKIN), hair: pick(rng, HAIR),
+      shirt: pick(rng, SHIRT[type]), pants: pick(rng, ['#3b3b50','#4a3f35','#2f4858','#5d5d6e']),
+      longHair: rng() < .45, cap: type==='T' && rng() < .8,
+    },
+    buff: { atk:1, def:1 },
+  };
+  m.hp = m.maxHP;
+  return m;
+}
+function levelUp(m){
+  m.lvl++; m.maxHP += 6; m.atk += 2; m.hp = Math.min(m.maxHP, m.hp + 8);
+}
+function xpNeed(m){ return m.lvl * 24; }
+function makeBoss(){
+  const b = {
+    id:-1, name:'Logge', role:'Der Saboteur', type:'W', lvl:10,
+    maxHP: 150, hp:150, atk: 34, xp:0,
+    moves:['absage','sabotage','vorhang','drohung'],
+    palette:{ skin:SKIN[0], hair:'#1a1a1a', shirt:'#1d1f29', pants:'#14151f', longHair:false, cap:false, evil:true },
+    buff:{ atk:1, def:1 }, boss:true,
+  };
+  return b;
+}
+
+/* ================================================================
+   game state + save
+================================================================ */
+const G = {
+  mode: 'title',          // title | world | battle | dialog | menu
+  ensemble: [],           // gefangene Member-Instanzen (Reihenfolge = Aufstellung)
+  playerId: -2,           // -2 = Sebastian (Regie), sonst RAW-Index
+  bossDown: false,
+  encounterCooldown: 0,
+  healReady: true,
+  fotoReady: true,
+};
+const maxCatch = () => TOTAL - (G.playerId >= 0 ? 1 : 0);
+const SAVE_KEY = 'theatermon-ramsen';
+function save(){
+  localStorage.setItem(SAVE_KEY, JSON.stringify({
+    bossDown: G.bossDown,
+    playerId: G.playerId,
+    ensemble: G.ensemble.map(m => ({ id:m.id, lvl:m.lvl, xp:m.xp, hp:m.hp, hpV:m.hpV, atkV:m.atkV })),
+  }));
+}
+function load(){
+  try {
+    const d = JSON.parse(localStorage.getItem(SAVE_KEY));
+    if (!d || !d.ensemble || !d.ensemble.length) return false;
+    G.bossDown = !!d.bossDown;
+    G.playerId = d.playerId ?? -2;
+    G.ensemble = d.ensemble.map(s => {
+      const m = makeMember(s.id, 1);
+      m.lvl = s.lvl; m.xp = s.xp;
+      m.maxHP = 26 + s.lvl*6 + m.hpV; m.atk = 8 + s.lvl*2 + m.atkV;
+      m.hp = Math.min(s.hp, m.maxHP);
+      return m;
+    });
+    return true;
+  } catch(e){ return false; }
+}
+const caughtIds = () => new Set(G.ensemble.map(m => m.id));
+const activeFighter = () => G.ensemble.find(m => m.hp > 0) || G.ensemble[0];
+
+/* ================================================================
+   three.js setup
+================================================================ */
+const renderer = new THREE.WebGLRenderer({ antialias:true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+$('game').appendChild(renderer.domElement);
+
+const NIGHT = '#141831';
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(NIGHT);
+scene.fog = new THREE.Fog(NIGHT, 55, 165);
+const camera = new THREE.PerspectiveCamera(55, innerWidth/innerHeight, .1, 500);
+
+const battleScene = new THREE.Scene();
+battleScene.background = new THREE.Color('#0c0e1e');
+const battleCam = new THREE.PerspectiveCamera(50, innerWidth/innerHeight, .1, 200);
+battleCam.position.set(0, 4.6, 10.2);
+battleCam.lookAt(0, 1.6, 0);
+
+addEventListener('resize', () => {
+  camera.aspect = battleCam.aspect = innerWidth/innerHeight;
+  camera.updateProjectionMatrix(); battleCam.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+// toon gradient
+const gradTex = new THREE.DataTexture(new Uint8Array([60,60,60,255, 140,140,140,255, 255,255,255,255]), 3, 1);
+gradTex.minFilter = gradTex.magFilter = THREE.NearestFilter;
+gradTex.needsUpdate = true;
+const matCache = {};
+function toon(color){
+  if (!matCache[color]) matCache[color] = new THREE.MeshToonMaterial({ color, gradientMap: gradTex });
+  return matCache[color];
+}
+const outlineMat = new THREE.MeshBasicMaterial({ color:'#16120f', side: THREE.BackSide });
+
+/* ---------- lights (world) ---------- */
+scene.add(new THREE.HemisphereLight('#5560a4', '#1c2415', 1.0));
+const moonLight = new THREE.DirectionalLight('#aab4ff', 0.7);
+moonLight.position.set(-50, 80, -30);
+moonLight.castShadow = true;
+moonLight.shadow.mapSize.set(1024, 1024);
+moonLight.shadow.camera.left = -70; moonLight.shadow.camera.right = 70;
+moonLight.shadow.camera.top = 70; moonLight.shadow.camera.bottom = -70;
+scene.add(moonLight);
+
+/* ---------- person builder ---------- */
+function box(w,h,d,color,castShadow=true){
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), toon(color));
+  m.castShadow = castShadow;
+  return m;
+}
+function addOutline(mesh, s=1.06){
+  const o = new THREE.Mesh(mesh.geometry, outlineMat);
+  o.scale.setScalar(s);
+  mesh.add(o);
+}
+function buildPerson(p, opts={}){
+  const g = new THREE.Group();
+  const limbGeoLeg = new THREE.BoxGeometry(.22,.5,.22); limbGeoLeg.translate(0,-.25,0);
+  const limbGeoArm = new THREE.BoxGeometry(.15,.5,.15); limbGeoArm.translate(0,-.22,0);
+  const legL = new THREE.Mesh(limbGeoLeg, toon(p.pants)); legL.position.set(-.14,.5,0);
+  const legR = new THREE.Mesh(limbGeoLeg.clone(), toon(p.pants)); legR.position.set(.14,.5,0);
+  const torso = box(.56,.62,.32, p.shirt); torso.position.y = .81;
+  const armL = new THREE.Mesh(limbGeoArm, toon(p.shirt)); armL.position.set(-.37,1.05,0);
+  const armR = new THREE.Mesh(limbGeoArm.clone(), toon(p.shirt)); armR.position.set(.37,1.05,0);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(.24,12,10), toon(p.skin)); head.position.y = 1.34;
+  const hair = new THREE.Mesh(new THREE.SphereGeometry(.265,12,10), toon(p.hair));
+  hair.position.y = 1.42; hair.scale.y = .72;
+  [legL,legR,torso,armL,armR,head].forEach(m => { m.castShadow = true; addOutline(m); });
+  addOutline(hair);
+  g.add(legL, legR, torso, armL, armR, head, hair);
+  if (p.longHair){
+    const back = box(.34,.42,.14, p.hair); back.position.set(0,1.18,-.18); addOutline(back); g.add(back);
+  }
+  if (p.cap){
+    hair.visible = false;
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(.26,.27,.14,12), toon('#3a3f4a'));
+    cap.position.y = 1.52; addOutline(cap); g.add(cap);
+    const brim = box(.3,.04,.18,'#3a3f4a'); brim.position.set(0,1.47,.26); g.add(brim);
+  }
+  if (p.beret){
+    hair.scale.y = .6;
+    const beret = new THREE.Mesh(new THREE.CylinderGeometry(.3,.24,.12,12), toon('#a8232f'));
+    beret.position.set(.05,1.56,0); beret.rotation.z = -.18; addOutline(beret); g.add(beret);
+    const mega = new THREE.Mesh(new THREE.ConeGeometry(.14,.34,10), toon('#e8e3d5'));
+    mega.position.set(.5,.78,.12); mega.rotation.z = Math.PI/2.3; addOutline(mega); g.add(mega);
+  }
+  if (p.evil){
+    // Kapuze tief im Gesicht, nur zwei rot glühende Augen
+    const hood = new THREE.Mesh(new THREE.SphereGeometry(.3,12,10), toon(p.shirt));
+    hood.position.y = 1.36; hood.scale.set(1,.98,1); addOutline(hood); g.add(hood);
+    for (const ex of [-.09,.09]){
+      const eye = new THREE.Mesh(new THREE.SphereGeometry(.04,8,6), new THREE.MeshBasicMaterial({ color:'#ff2030' }));
+      eye.position.set(ex, 1.36, .32); g.add(eye);
+    }
+  }
+  g.userData.anim = { legL, legR, armL, armR, t: Math.random()*9 };
+  if (opts.scale) g.scale.setScalar(opts.scale);
+  return g;
+}
+function animPerson(g, moving, dt){
+  const a = g.userData.anim; if (!a) return;
+  a.t += dt * (moving ? 11 : 2.2);
+  const k = moving ? .55 : .06;
+  a.legL.rotation.x = Math.sin(a.t)*k;
+  a.legR.rotation.x = -Math.sin(a.t)*k;
+  a.armL.rotation.x = -Math.sin(a.t)*k*.8;
+  a.armR.rotation.x = Math.sin(a.t)*k*.8;
+}
+
+/* ---------- name label sprites ---------- */
+function makeLabel(name, role, typeCol){
+  const cv = document.createElement('canvas'); cv.width = 360; cv.height = 110;
+  const c = cv.getContext('2d');
+  c.textAlign = 'center';
+  c.lineWidth = 7; c.strokeStyle = 'rgba(15,13,25,.9)';
+  c.font = "34px Schoolbell, cursive";
+  c.strokeText(name, 180, 44); c.fillStyle = '#f7f1e3'; c.fillText(name, 180, 44);
+  c.font = "25px Caveat, cursive";
+  c.strokeText(role, 180, 82); c.fillStyle = typeCol; c.fillText(role, 180, 82);
+  const tex = new THREE.CanvasTexture(cv);
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: true }));
+  sp.scale.set(3.4, 1.04, 1);
+  sp.position.y = 2.15;
+  return sp;
+}
+const TYPE_COL = { S:'#ff9d76', T:'#9cc8ff', K:'#e0a3ff', R:'#ffd97a', W:'#7fe3dc' };
+
+/* ================================================================
+   world
+================================================================ */
+const ANIM = { crowns:[], curtains:[], cones:[], spotTargets:[], bCurtains:[], dome:null, stars:null, treeDots:[] };
+const obstacles = []; // {x,z,r}
+function blockCircle(x,z,r){ obstacles.push({x,z,r}); }
+
+// ground
+{
+  const geo = new THREE.PlaneGeometry(260, 260, 44, 44);
+  geo.rotateX(-Math.PI/2);
+  const pos = geo.attributes.position, colors = [];
+  const c1 = new THREE.Color('#2e4a2f'), c2 = new THREE.Color('#243d28'), c3 = new THREE.Color('#3a5a35');
+  const rng = mulberry(42);
+  for (let i=0;i<pos.count;i++){
+    const r = rng();
+    const c = r < .5 ? c1 : (r < .8 ? c2 : c3);
+    colors.push(c.r, c.g, c.b);
+  }
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  const ground = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ vertexColors:true }));
+  ground.receiveShadow = true;
+  scene.add(ground);
+  // Vorplatz vor der Bühne
+  const fore = new THREE.Mesh(new THREE.CircleGeometry(17, 26), new THREE.MeshLambertMaterial({ color:'#5d5345' }));
+  fore.rotation.x = -Math.PI/2; fore.position.set(0, .03, -24);
+  fore.receiveShadow = true;
+  scene.add(fore);
+}
+
+// stars + moon
+{
+  const n = 420, p = new Float32Array(n*3), rng = mulberry(7);
+  for (let i=0;i<n;i++){
+    const a = rng()*Math.PI*2, r = 150 + rng()*60, y = 25 + rng()*130;
+    p[i*3] = Math.cos(a)*r; p[i*3+1] = y; p[i*3+2] = Math.sin(a)*r;
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(p, 3));
+  const stars = new THREE.Points(g, new THREE.PointsMaterial({ color:'#cfd6ff', size:1.1, sizeAttenuation:false }));
+  ANIM.stars = stars.material;
+  scene.add(stars);
+  const moon = new THREE.Mesh(new THREE.SphereGeometry(6, 16, 12),
+    new THREE.MeshBasicMaterial({ color:'#f4ecd8' }));
+  moon.position.set(-70, 78, -95);
+  scene.add(moon);
+}
+
+// sign helper
+function makeSign(text, w, h, fontPx, bg='#241d18', fg='#f1d9a0'){
+  const cv = document.createElement('canvas'); cv.width = 512; cv.height = Math.round(512*h/w);
+  const c = cv.getContext('2d');
+  c.fillStyle = bg; c.fillRect(0,0,cv.width,cv.height);
+  c.strokeStyle = fg; c.lineWidth = 6; c.strokeRect(8,8,cv.width-16,cv.height-16);
+  c.fillStyle = fg; c.textAlign = 'center'; c.textBaseline = 'middle';
+  c.font = fontPx + "px 'Special Elite', monospace";
+  c.fillText(text, cv.width/2, cv.height/2 + 4);
+  const tex = new THREE.CanvasTexture(cv);
+  return new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: tex }));
+}
+
+// open-air stage
+const stagePos = { x:0, z:-44 };
+{
+  const plat = box(27, 1.3, 11, '#7a5230'); plat.position.set(0, .65, -44); plat.receiveShadow = true;
+  scene.add(plat);
+  // Vorhang-Streifen
+  for (let i=0;i<18;i++){
+    const strip = box(1.45, 7.2, .4, i%2 ? '#8e1f2f' : '#6f1825', false);
+    strip.position.set(-12.3 + i*1.45, 4.6, -48.8);
+    strip.userData.i = i;
+    ANIM.curtains.push(strip);
+    scene.add(strip);
+  }
+  // Seitentürme + Traverse
+  const t1 = box(1.2, 9.5, 1.2, '#2a2d38'); t1.position.set(-13.8, 4.75, -44);
+  const t2 = t1.clone(); t2.position.x = 13.8;
+  const beam = box(29, .7, .9, '#2a2d38'); beam.position.set(0, 9.2, -44);
+  scene.add(t1, t2, beam);
+  // Schild
+  const sign = makeSign('KOLPINGTHEATER RAMSEN', 16, 2.2, 44);
+  sign.position.set(0, 10.6, -44);
+  scene.add(sign);
+  // Scheinwerferkegel
+  const coneMat = new THREE.MeshBasicMaterial({ color:'#ffd27f', transparent:true, opacity:.13, depthWrite:false, blending:THREE.AdditiveBlending });
+  for (const sx of [-9, 9]){
+    const cone = new THREE.Mesh(new THREE.ConeGeometry(3.2, 8.6, 18, 1, true), coneMat);
+    cone.position.set(sx*.55, 5.2, -44.5);
+    cone.rotation.z = sx > 0 ? .35 : -.35;
+    cone.userData.base = cone.rotation.z;
+    ANIM.cones.push(cone);
+    scene.add(cone);
+    const spot = new THREE.SpotLight('#ffd9a0', 90, 30, .5, .5, 1.4);
+    spot.position.set(sx, 8.8, -43);
+    spot.target.position.set(sx*.3, 0, -45);
+    ANIM.spotTargets.push(spot.target);
+    scene.add(spot, spot.target);
+  }
+  blockCircle(0, -46, 8.5); blockCircle(-9, -45, 6); blockCircle(9, -45, 6);
+}
+
+// Kaffee & Kuchen Stand (heilt) — Theatergaudi!
+const kaffeePos = { x:24, z:10 };
+{
+  const counter = box(5, 1.1, 2.2, '#8a6238'); counter.position.set(24, .55, 10); scene.add(counter);
+  for (let i=0;i<6;i++){
+    const s = box(.85, .12, 2.8, i%2 ? '#d9483b' : '#f1e8d8', false);
+    s.position.set(21.9 + i*.85, 2.6 - i*.04, 10);
+    scene.add(s);
+  }
+  const poleL = box(.14, 2.6, .14, '#5b4226'); poleL.position.set(21.8, 1.3, 11.2);
+  const poleR = poleL.clone(); poleR.position.x = 26.2; scene.add(poleL, poleR);
+  const sign = makeSign('Kaffee & Kuchen', 4.6, 1.1, 60, '#f1e8d8', '#a8232f');
+  sign.position.set(24, 3.4, 10.6); scene.add(sign);
+  const warm = new THREE.PointLight('#ffb45e', 30, 16, 1.7); warm.position.set(24, 2.4, 11); scene.add(warm);
+  blockCircle(24, 10, 3);
+}
+
+// Fotobox (easter egg)
+const fotoPos = { x:-24, z:14 };
+let fotoLight;
+{
+  const cab = box(2.1, 2.6, 2.1, '#23252f'); cab.position.set(-24, 1.3, 14); addOutline(cab); scene.add(cab);
+  const lens = new THREE.Mesh(new THREE.CylinderGeometry(.34,.34,.18,16), toon('#e8e3d5'));
+  lens.rotation.x = Math.PI/2; lens.position.set(-24, 1.6, 15.16); scene.add(lens);
+  const sign = makeSign('FOTOBOX', 1.9, .55, 72, '#23252f', '#ffd97a');
+  sign.position.set(-24, 2.95, 15.12); scene.add(sign);
+  fotoLight = new THREE.PointLight('#ffffff', 0, 14, 1.6);
+  fotoLight.position.set(-24, 1.8, 15.4); scene.add(fotoLight);
+  blockCircle(-24, 14, 2.2);
+}
+
+// Hüpfburg (deko)
+{
+  const base = box(6, 1.4, 6, '#f25c54'); base.position.set(38, .7, -6); scene.add(base);
+  for (const [cx,cz] of [[-2.6,-2.6],[2.6,-2.6],[-2.6,2.6],[2.6,2.6]]){
+    const tw = new THREE.Mesh(new THREE.CylinderGeometry(.55,.55,3.4,10), toon('#f4d35e'));
+    tw.position.set(38+cx, 1.7, -6+cz); addOutline(tw); scene.add(tw);
+  }
+  const roofDome = new THREE.Mesh(new THREE.SphereGeometry(3.4, 14, 10, 0, Math.PI*2, 0, Math.PI/2), toon('#5fa8d3'));
+  roofDome.position.set(38, 3.1, -6); roofDome.scale.y = .55; scene.add(roofDome);
+  ANIM.dome = roofDome;
+  blockCircle(38, -6, 4.4);
+}
+
+// Fundus-Schuppen (Kostüm-Ecke)
+{
+  const shed = box(5, 3, 4, '#6e5440'); shed.position.set(50, 1.5, 30); scene.add(shed);
+  const roof = new THREE.Mesh(new THREE.ConeGeometry(4.2, 2, 4), toon('#4a3526'));
+  roof.position.set(50, 4, 30); roof.rotation.y = Math.PI/4; scene.add(roof);
+  const sign = makeSign('FUNDUS', 2.6, .8, 80); sign.position.set(50, 2.2, 32.05); scene.add(sign);
+  blockCircle(50, 30, 3.6);
+}
+
+// Bäume am Rand
+{
+  const rng = mulberry(99);
+  for (let i=0;i<46;i++){
+    const a = rng()*Math.PI*2, r = 78 + rng()*38;
+    const x = Math.cos(a)*r, z = Math.sin(a)*r;
+    const h = 3 + rng()*3.4;
+    const trunk = box(.5,.5+h*.4,.5,'#4a3526'); trunk.position.set(x, h*.2, z);
+    const crown = new THREE.Mesh(new THREE.ConeGeometry(1.6 + rng()*1.2, h, 7), toon(rng()<.5?'#1f4d2e':'#28603a'));
+    crown.position.set(x, h*.62 + .4, z); crown.castShadow = true;
+    crown.userData.phase = rng()*9;
+    ANIM.crowns.push(crown);
+    ANIM.treeDots.push([x, z]);
+    addOutline(crown, 1.04);
+    scene.add(trunk, crown);
+    blockCircle(x, z, 1.3);
+  }
+}
+
+/* ================================================================
+   player + input
+================================================================ */
+let player = null;
+function playerName(){ return G.playerId === -2 ? 'Sebastian' : RAW[G.playerId][0]; }
+function playerRole(){ return G.playerId === -2 ? 'Regie' : RAW[G.playerId][1]; }
+function setPlayerCharacter(id){
+  G.playerId = id;
+  const pal = id === -2
+    ? { skin:'#f1c9a5', hair:'#3a3a3a', shirt:'#222222', pants:'#1c1c28', beret:true }
+    : makeMember(id, 1).palette;
+  const pos = player ? player.position.clone() : new THREE.Vector3(0, 0, 18);
+  const rot = player ? player.rotation.y : 0;
+  if (player) scene.remove(player);
+  player = buildPerson(pal);
+  player.position.copy(pos);
+  player.rotation.y = rot;
+  player.add(makeLabel(playerName(), playerRole() + ' · Casting', '#ffd97a'));
+  scene.add(player);
+}
+
+const keys = {};
+addEventListener('keydown', e => {
+  keys[e.key.toLowerCase()] = true;
+  if (e.key === 'Escape'){
+    if (G.mode === 'world') openEnsemble();
+    else if (G.mode === 'menu') closeEnsemble();
+  }
+  if (e.key.toLowerCase() === 'e' && G.mode === 'world') tryInteract();
+});
+addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+
+// Kamera-Orbit: Maus ziehen dreht, Rad zoomt
+let camYaw = 0, camPitch = .58, camDist = 14;
+let dragging = false, lastX = 0, lastY = 0;
+const cnv = renderer.domElement;
+cnv.addEventListener('contextmenu', e => e.preventDefault());
+cnv.addEventListener('pointerdown', e => { dragging = true; lastX = e.clientX; lastY = e.clientY; cnv.setPointerCapture(e.pointerId); });
+cnv.addEventListener('pointermove', e => {
+  if (!dragging) return;
+  camYaw -= (e.clientX - lastX) * .0055;
+  camPitch = Math.min(1.25, Math.max(.18, camPitch + (e.clientY - lastY) * .004));
+  lastX = e.clientX; lastY = e.clientY;
+});
+addEventListener('pointerup', () => dragging = false);
+cnv.addEventListener('wheel', e => { camDist = Math.min(24, Math.max(7, camDist + e.deltaY * .012)); }, { passive:true });
+
+function moveDir(){
+  let x = 0, z = 0;
+  if (keys['w']||keys['arrowup']) z -= 1;
+  if (keys['s']||keys['arrowdown']) z += 1;
+  if (keys['a']||keys['arrowleft']) x -= 1;
+  if (keys['d']||keys['arrowright']) x += 1;
+  const l = Math.hypot(x,z) || 1;
+  return { x:x/l, z:z/l, moving: !!(x||z) };
+}
+function collides(x, z){
+  if (Math.hypot(x, z) > 112) return true;
+  for (const o of obstacles) if (Math.hypot(x-o.x, z-o.z) < o.r) return true;
+  return false;
+}
+
+/* ================================================================
+   NPC wanderers
+================================================================ */
+const ZONES = {
+  S: { x1:-55, x2:55, z1:16, z2:60 },
+  T: { x1:-54, x2:-16, z1:-50, z2:-14 },
+  K: { x1:36, x2:58, z1:16, z2:42 },
+};
+const wanderers = []; // {member, model, target, pauseT, gone}
+const benched = new Map(); // id -> timestamp wieder verfügbar
+
+function zoneSpot(t){
+  const z = ZONES[t], rng = Math.random;
+  for (let i=0;i<24;i++){
+    const x = z.x1 + rng()*(z.x2-z.x1), zz = z.z1 + rng()*(z.z2-z.z1);
+    if (!collides(x, zz) && Math.hypot(x-player.position.x, zz-player.position.z) > 10) return {x, z:zz};
+  }
+  return { x:(z.x1+z.x2)/2, z:(z.z1+z.z2)/2 };
+}
+function wildLevel(type){
+  const base = type==='S' ? 2 : type==='T' ? 4 : 5;
+  return Math.min(9, base + Math.floor(Math.random()*3) + Math.floor(G.ensemble.length/4));
+}
+function spawnWanderer(){
+  const caught = caughtIds();
+  const now = performance.now();
+  const avail = RAW.map((_,i)=>i).filter(i =>
+    i !== G.playerId && !caught.has(i) && !wanderers.some(w => w.member.id === i) &&
+    (!benched.has(i) || benched.get(i) < now));
+  if (!avail.length) return;
+  const id = avail[Math.floor(Math.random()*avail.length)];
+  const type = RAW[id][2];
+  const member = makeMember(id, wildLevel(type));
+  const model = buildPerson(member.palette);
+  const spot = zoneSpot(type);
+  model.position.set(spot.x, 0, spot.z);
+  // Level = Jahre im Theater, direkt am Namensschild
+  model.add(makeLabel(member.name, `${member.role} · ${member.lvl} J. dabei`, TYPE_COL[member.type]));
+  scene.add(model);
+  wanderers.push({ member, model, target: zoneSpot(type), pauseT: 0 });
+}
+function removeWanderer(w, benchMs){
+  scene.remove(w.model);
+  wanderers.splice(wanderers.indexOf(w), 1);
+  if (benchMs) benched.set(w.member.id, performance.now() + benchMs);
+}
+function updateWanderers(dt){
+  while (wanderers.length < Math.min(9, TOTAL - G.ensemble.length)) {
+    const before = wanderers.length;
+    spawnWanderer();
+    if (wanderers.length === before) break;
+  }
+  for (const w of wanderers){
+    if (w.pauseT > 0){
+      w.pauseT -= dt;
+      animPerson(w.model, false, dt);
+      // manche winken dir zu
+      if (w.wave) w.model.userData.anim.armR.rotation.z = 2.5 + Math.sin(w.model.userData.anim.t*4)*.35;
+      continue;
+    }
+    w.model.userData.anim.armR.rotation.z = 0;
+    const dx = w.target.x - w.model.position.x, dz = w.target.z - w.model.position.z;
+    const d = Math.hypot(dx, dz);
+    if (d < .4){
+      w.pauseT = 1 + Math.random()*2.5;
+      w.wave = Math.random() < .4;
+      w.target = zoneSpot(w.member.type);
+      continue;
+    }
+    w.model.position.x += dx/d * 1.25 * dt;
+    w.model.position.z += dz/d * 1.25 * dt;
+    w.model.position.y = Math.abs(Math.sin(w.model.userData.anim.t)) * .05;
+    w.model.rotation.y = Math.atan2(dx, dz);
+    animPerson(w.model, true, dt);
+    // Begegnung
+    if (G.mode === 'world' && G.encounterCooldown <= 0 &&
+        Math.hypot(w.model.position.x - player.position.x, w.model.position.z - player.position.z) < 1.5){
+      startBattle(w);
+      break;
+    }
+  }
+}
+
+/* ================================================================
+   boss (Sebastian) on the forecourt
+================================================================ */
+const bossModel = buildPerson(makeBoss().palette, { scale:1.12 });
+bossModel.position.set(0, 0, -26);
+bossModel.add(makeLabel('Logge', 'Der Saboteur', '#ff5560'));
+const evilGlow = new THREE.PointLight('#ff2233', 16, 8, 1.8);
+evilGlow.position.y = 1.5;
+bossModel.add(evilGlow);
+scene.add(bossModel);
+
+/* ================================================================
+   UI helpers
+================================================================ */
+function showDialog(speaker, text, { yesNo=false } = {}){
+  return new Promise(res => {
+    const prevMode = G.mode;
+    G.mode = 'dialog';
+    $('dialog-speaker').textContent = speaker;
+    $('dialog-text').textContent = text;
+    $('dialog').classList.remove('hidden');
+    $('dialog-no').classList.toggle('hidden', !yesNo);
+    $('dialog-ok').textContent = yesNo ? 'Na klar!' : 'Weiter';
+    const done = ok => {
+      $('dialog').classList.add('hidden');
+      $('dialog-ok').onclick = $('dialog-no').onclick = null;
+      G.mode = prevMode === 'dialog' ? 'world' : prevMode;
+      sfx.click(); res(ok);
+    };
+    $('dialog-ok').onclick = () => done(true);
+    $('dialog-no').onclick = () => done(false);
+  });
+}
+async function wipe(){
+  $('wipe').classList.add('on');
+  await sleep(580);
+}
+function unwipe(){ $('wipe').classList.remove('on'); }
+
+function hudUpdate(){
+  $('hud-count').textContent = G.ensemble.length;
+  $('hud-total').textContent = maxCatch();
+  const act = activeFighter();
+  $('hud-fighter').innerHTML = G.ensemble.slice(0, 8).map(m =>
+    `<div>${m === act ? '&#x2B50;' : '&#x1F3AD;'} ${m.name} <span class="chip ${m.type}">${TYPE_NAME[m.type]}</span> ${m.lvl} J. · ${m.hp}/${m.maxHP}</div>`
+  ).join('') + (G.ensemble.length > 8 ? `<div>… +${G.ensemble.length - 8} weitere (Esc)</div>` : '');
+}
+
+/* minimap */
+const mmCtx = $('minimap').getContext('2d');
+function drawMinimap(){
+  const c = mmCtx, S = 180, cx = S/2, r = cx - 4;
+  const px = u => cx + u/118*r, s = u => u/118*r;
+  c.clearRect(0, 0, S, S);
+  c.save();
+  c.beginPath(); c.arc(cx, cx, r, 0, 7); c.clip();
+  c.fillStyle = '#24371f'; c.fillRect(0, 0, S, S);
+  // Vorplatz + Bühne
+  c.fillStyle = '#5d5345';
+  c.beginPath(); c.arc(px(0), px(-24), s(17), 0, 7); c.fill();
+  c.fillStyle = '#7a5230'; c.fillRect(px(-13.5), px(-49.5), s(27), s(11));
+  c.fillStyle = '#a8232f'; c.fillRect(px(-13), px(-50.5), s(26), 2.5);
+  // Stände
+  c.fillStyle = '#e8b54a'; c.fillRect(px(22), px(8.5), 6, 5);     // Kaffee
+  c.fillStyle = '#0e0f16'; c.fillRect(px(-26), px(12), 5, 5);     // Fotobox
+  c.fillStyle = '#6e5440'; c.fillRect(px(48), px(28), 5, 5);      // Fundus
+  c.fillStyle = '#f25c54'; c.fillRect(px(35), px(-9), 6, 6);      // Hüpfburg
+  // Bäume
+  c.fillStyle = '#152a14';
+  for (const [tx, tz] of ANIM.treeDots) c.fillRect(px(tx) - 1.5, px(tz) - 1.5, 3, 3);
+  // Mitglieder
+  for (const w of wanderers){
+    c.fillStyle = TYPE_COL[w.member.type];
+    c.beginPath(); c.arc(px(w.model.position.x), px(w.model.position.z), 3, 0, 7); c.fill();
+  }
+  // Logge: pulsierend rot
+  if (!G.bossDown){
+    c.fillStyle = '#ff2030';
+    c.beginPath(); c.arc(px(bossModel.position.x), px(bossModel.position.z), 3.5 + Math.sin(clock.elapsedTime*4)*1.2, 0, 7); c.fill();
+  }
+  // Spieler: goldener Pfeil
+  c.save();
+  c.translate(px(player.position.x), px(player.position.z));
+  c.rotate(Math.atan2(Math.sin(player.rotation.y), -Math.cos(player.rotation.y)));
+  c.fillStyle = '#ffd97a'; c.strokeStyle = '#16120f'; c.lineWidth = 1.5;
+  c.beginPath(); c.moveTo(0, -6); c.lineTo(4.5, 5); c.lineTo(-4.5, 5); c.closePath();
+  c.fill(); c.stroke();
+  c.restore();
+  c.restore();
+}
+
+/* interactions (E) */
+function nearestInteract(){
+  const px = player.position.x, pz = player.position.z;
+  if (Math.hypot(px-kaffeePos.x, pz-kaffeePos.z) < 4.2) return 'kaffee';
+  if (Math.hypot(px-fotoPos.x, pz-fotoPos.z) < 3.4) return 'foto';
+  if (Math.hypot(px-bossModel.position.x, pz-bossModel.position.z) < 3.2) return 'boss';
+  return null;
+}
+async function tryInteract(){
+  const t = nearestInteract();
+  if (t === 'kaffee'){
+    const hurt = G.ensemble.some(m => m.hp < m.maxHP);
+    G.ensemble.forEach(m => { m.hp = m.maxHP; m.buff = {atk:1, def:1}; });
+    sfx.heal(); hudUpdate(); save();
+    await showDialog('Theatergaudi-Stand', hurt
+      ? 'Kaffee und ein Stück Kuchen – das ganze Ensemble ist wieder voll motiviert!'
+      : 'Alle sind schon bestens motiviert. Trotzdem ein Stück Kuchen? Natürlich.');
+  } else if (t === 'foto'){
+    fotoLight.intensity = 260;
+    setTimeout(() => fotoLight.intensity = 0, 130);
+    sfx.click();
+    await showDialog('Fotobox', '*KLICK!* &#x1F4F8;\nAuf dem Display flackern alte Ensemblefotos – jedes Gesicht fein säuberlich durchgestrichen.\nNur eines nicht: deins. Noch nicht.');
+  } else if (t === 'boss'){
+    await bossEncounter();
+  }
+}
+async function bossEncounter(){
+  if (G.bossDown){
+    await showDialog('Logge', 'Es ist vorbei… Ich wollte nur ein einziges Mal im Rampenlicht stehen, statt immer dahinter.\nBring die Premiere auf die Bühne. Ich mache wieder gut, was ich zerstört habe.');
+    return;
+  }
+  if (G.ensemble.length < 6){
+    await showDialog('Logge, der Saboteur', `Mit ${G.ensemble.length} Leuten willst du mich aufhalten?\nIch habe die Bühnenpläne verbrannt und die Plakate zerrissen – und das war nur die Ouvertüre.\nHol dir mindestens 6 Mitglieder. Falls sie sich überhaupt trauen.`);
+    return;
+  }
+  const ok = await showDialog('Logge, der Saboteur',
+    'Zehn Jahre stand ich im Schatten. Immer nur „der hinter der Website". Nie auf dem Plakat, nie im Applaus.\nHEUTE fällt der letzte Vorhang – keine Premiere, kein Applaus, kein Kolpingtheater. Für niemanden mehr.\nStell dich mir. Oder sieh zu, wie alles endet.',
+    { yesNo:true });
+  if (ok) startBattle(null, makeBoss());
+}
+
+/* ================================================================
+   battle scene (separate)
+================================================================ */
+let dust;
+{
+  const plat = box(17, 1.5, 8.5, '#7a5230'); plat.position.y = .75; plat.receiveShadow = true;
+  battleScene.add(plat);
+  for (let i=0;i<14;i++){
+    const strip = box(1.45, 6.4, .4, i%2 ? '#8e1f2f' : '#6f1825', false);
+    strip.position.set(-9.4 + i*1.45, 4.2, -4.4);
+    strip.userData.i = i;
+    ANIM.bCurtains.push(strip);
+    battleScene.add(strip);
+  }
+  battleScene.add(new THREE.HemisphereLight('#665a8c', '#241d18', .9));
+  for (const sx of [-3.4, 3.4]){
+    const spot = new THREE.SpotLight('#ffd9a0', 160, 30, .42, .55, 1.3);
+    spot.position.set(sx, 9.5, 3);
+    spot.target.position.set(sx, 1.5, 0);
+    spot.castShadow = true;
+    battleScene.add(spot, spot.target);
+    const ring = new THREE.Mesh(new THREE.CircleGeometry(1.7, 24),
+      new THREE.MeshBasicMaterial({ color:'#ffdfa8', transparent:true, opacity:.3, blending:THREE.AdditiveBlending, depthWrite:false }));
+    ring.rotation.x = -Math.PI/2; ring.position.set(sx, 1.52, 0);
+    battleScene.add(ring);
+  }
+  // Staub im Scheinwerferlicht
+  const n = 90, p = new Float32Array(n*3), rng = mulberry(5);
+  for (let i=0;i<n;i++){ p[i*3] = (rng()-.5)*14; p[i*3+1] = 1.5 + rng()*7; p[i*3+2] = (rng()-.5)*6; }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(p,3));
+  dust = new THREE.Points(g, new THREE.PointsMaterial({ color:'#ffe9bf', size:.06, transparent:true, opacity:.65 }));
+  battleScene.add(dust);
+}
+
+const B = { active:false, enemy:null, mine:null, enemyModel:null, myModel:null, wanderRef:null, busy:false };
+
+function hpPct(m){ return Math.max(0, m.hp) / m.maxHP * 100; }
+function setBar(el, m){
+  const p = hpPct(m);
+  el.style.width = p + '%';
+  el.style.background = p > 50 ? '#4caf6e' : p > 22 ? '#e8b54a' : '#d9483b';
+}
+function refreshBattleUI(){
+  const e = B.enemy, m = B.mine;
+  $('e-name').innerHTML = `${e.name} <span class="chip ${e.type}">${TYPE_NAME[e.type]}</span>`;
+  $('e-role').textContent = e.role;
+  $('e-lvl').textContent = e.lvl + ' J. dabei';
+  setBar($('e-hp'), e);
+  $('p-name').innerHTML = `${m.name} <span class="chip ${m.type}">${TYPE_NAME[m.type]}</span>`;
+  $('p-role').textContent = `${m.role} · ${m.hp}/${m.maxHP}`;
+  $('p-lvl').textContent = m.lvl + ' J. dabei';
+  setBar($('p-hp'), m);
+  $('p-xp').style.width = Math.min(100, m.xp / xpNeed(m) * 100) + '%';
+}
+function blog(t){ $('battle-log').textContent = t; }
+function buildMoveButtons(){
+  const wrap = $('battle-moves');
+  wrap.innerHTML = '';
+  for (const key of B.mine.moves){
+    const mv = MOVES[key];
+    const b = document.createElement('button');
+    b.className = 'btn';
+    b.innerHTML = `${mv.n} <small>${TYPE_NAME[mv.t]}${mv.p ? ' · ' + mv.p : ''}</small>`;
+    b.onclick = () => playerTurn(key);
+    wrap.appendChild(b);
+  }
+}
+function setMenuEnabled(on){
+  document.querySelectorAll('#battle-menu .btn').forEach(b => b.disabled = !on);
+}
+
+function placeBattleModels(){
+  if (B.myModel) battleScene.remove(B.myModel);
+  if (B.enemyModel) battleScene.remove(B.enemyModel);
+  B.myModel = buildPerson(B.mine.palette, { scale:1.5 });
+  B.myModel.position.set(-3.4, 1.5, 0);
+  B.myModel.rotation.y = Math.PI/2.4;
+  B.enemyModel = buildPerson(B.enemy.palette, { scale: B.enemy.boss ? 1.7 : 1.5 });
+  B.enemyModel.position.set(3.4, 1.5, 0);
+  B.enemyModel.rotation.y = -Math.PI/2.4;
+  battleScene.add(B.myModel, B.enemyModel);
+}
+
+async function startBattle(wanderRef, bossInstance){
+  G.mode = 'battle';
+  B.wanderRef = wanderRef;
+  B.enemy = bossInstance || wanderRef.member;
+  B.enemy.buff = { atk:1, def:1 };
+  B.mine = activeFighter();
+  B.mine.buff = { atk:1, def:1 };
+  sfx.encounter();
+  $('excl').classList.remove('hidden');
+  await sleep(520);
+  await wipe();
+  $('excl').classList.add('hidden');
+  placeBattleModels();
+  B.active = true;
+  $('battle-ui').classList.remove('hidden');
+  $('battle-menu').classList.remove('hidden');
+  $('hud').classList.add('hidden'); $('hint').classList.add('hidden'); $('interact').classList.add('hidden'); $('minimap').classList.add('hidden');
+  buildMoveButtons();
+  refreshBattleUI();
+  $('act-cast').disabled = !!B.enemy.boss;
+  unwipe();
+  // Auftritt von beiden Seiten
+  B.myModel.position.x = -9; B.enemyModel.position.x = 9;
+  await tween(500, k => {
+    const e2 = 1 - Math.pow(1-k, 3);
+    B.myModel.position.x = -9 + e2*5.6;
+    B.enemyModel.position.x = 9 - e2*5.6;
+  });
+  blog(B.enemy.boss
+    ? 'Logge tritt aus dem Dunkel, die Augen glühen rot. „HEUTE fällt der letzte Vorhang."'
+    : `${B.enemy.name} (${B.enemy.role}) will erst überzeugt werden!`);
+  setMenuEnabled(true);
+  $('act-cast').disabled = !!B.enemy.boss;
+}
+
+async function endBattle(){
+  B.active = false;
+  setMenuEnabled(true);
+  await wipe();
+  $('battle-ui').classList.add('hidden');
+  $('battle-menu').classList.add('hidden');
+  $('hud').classList.remove('hidden'); $('hint').classList.remove('hidden'); $('minimap').classList.remove('hidden');
+  if (B.myModel){ battleScene.remove(B.myModel); B.myModel = null; }
+  if (B.enemyModel){ battleScene.remove(B.enemyModel); B.enemyModel = null; }
+  G.mode = 'world';
+  G.encounterCooldown = 2;
+  hudUpdate(); save();
+  unwipe();
+}
+
+/* ---------- battle actions ---------- */
+function dmgCalc(att, def, mv){
+  const eff = typeEff(mv.t, def.type);
+  const variance = .85 + Math.random()*.3;
+  const raw = att.atk * att.buff.atk * (mv.p/22) * eff * variance * def.buff.def;
+  return { dmg: Math.max(1, Math.round(raw)), eff };
+}
+async function lunge(model, dir){
+  await tween(140, k => model.position.x += dir * .045);
+  await tween(140, k => model.position.x -= dir * .045);
+  model.position.x = dir > 0 ? -3.4 : 3.4;
+}
+async function flashShake(model){
+  const base = model.position.z;
+  await tween(240, k => { model.position.z = base + Math.sin(k*22)*.16*(1-k); });
+  model.position.z = base;
+}
+function burst(x, y, z, color){
+  const g = new THREE.Group();
+  for (let i=0;i<16;i++){
+    const m = new THREE.Mesh(new THREE.BoxGeometry(.09,.09,.09), new THREE.MeshBasicMaterial({ color }));
+    m.userData.v = new THREE.Vector3((Math.random()-.5)*4.5, Math.random()*3.5 + 1, (Math.random()-.5)*4.5);
+    m.position.set(x, y, z);
+    g.add(m);
+  }
+  battleScene.add(g);
+  tween(900, k => {
+    for (const m of g.children){
+      m.position.set(x + m.userData.v.x*k, y + m.userData.v.y*k - 2.2*k*k, z + m.userData.v.z*k);
+      m.rotation.x = m.rotation.y = k*7;
+      m.scale.setScalar(1-k);
+    }
+  }).then(() => battleScene.remove(g));
+}
+async function doMove(att, def, key, attModel, defModel, mine){
+  const mv = MOVES[key];
+  blog(`${att.name} setzt ${mv.n} ein!`);
+  await sleep(420);
+  if (Math.random() > (mv.acc ?? .95)){
+    blog('… und verfehlt das Stichwort!');
+    await sleep(650); return;
+  }
+  if (mv.eff === 'heal'){
+    att.hp = Math.min(att.maxHP, att.hp + Math.round(att.maxHP*.38));
+    sfx.heal(); refreshBattleUI();
+    blog(`${att.name} schöpft neue Motivation!`); await sleep(650); return;
+  }
+  if (mv.eff === 'atkUp'){
+    att.buff.atk = 1.5; sfx.heal();
+    blog(`${att.name}s Bühnenpräsenz steigt!`); await sleep(650); return;
+  }
+  if (mv.eff === 'defUp'){
+    att.buff.def = .65; sfx.heal();
+    blog(`${att.name} ist jetzt schwerer zu treffen!`); await sleep(650); return;
+  }
+  if (mv.eff === 'atkDown'){
+    def.buff.atk = Math.max(.4, def.buff.atk * .65); sfx.hit();
+    await flashShake(defModel);
+    blog(`${def.name} bekommt Lampenfieber!`); await sleep(650); return;
+  }
+  await lunge(attModel, mine ? 1 : -1);
+  sfx.hit();
+  const { dmg, eff } = dmgCalc(att, def, mv);
+  def.hp = Math.max(0, def.hp - dmg);
+  refreshBattleUI();
+  await flashShake(defModel);
+  if (eff > 1) blog(`Volltreffer – sehr effektiv! (${dmg})`);
+  else if (eff < 1) blog(`Hmm, das zieht nicht so recht… (${dmg})`);
+  else blog(`Das saß! (${dmg})`);
+  await sleep(650);
+}
+async function enemyTurn(){
+  const e = B.enemy;
+  const atkMoves = e.moves.filter(k => MOVES[k].p > 0);
+  const utilMoves = e.moves.filter(k => !MOVES[k].p);
+  const key = (utilMoves.length && Math.random() < .3) ? pick(Math.random, utilMoves) : pick(Math.random, atkMoves);
+  await doMove(e, B.mine, key, B.enemyModel, B.myModel, false);
+  refreshBattleUI();
+  if (B.mine.hp <= 0) await handleMyFaint();
+}
+async function gainXP(amount){
+  const m = B.mine;
+  m.xp += amount;
+  blog(`${m.name} bekommt ${amount} Applaus-Punkte!`);
+  refreshBattleUI();
+  await sleep(700);
+  while (m.xp >= xpNeed(m)){
+    m.xp -= xpNeed(m);
+    levelUp(m);
+    sfx.lvl();
+    burst(-3.4, 2.5, 0, '#7fe3dc');
+    blog(`${m.name} erreicht Level ${m.lvl}!`);
+    refreshBattleUI();
+    await sleep(900);
+  }
+}
+async function handleEnemyFaint(){
+  sfx.faint();
+  await tween(450, k => { B.enemyModel.scale.setScalar((B.enemy.boss?1.7:1.5)*(1-k*.9)); B.enemyModel.rotation.z = k*.6; });
+  blog(B.enemy.boss
+    ? 'Logge sinkt auf die Knie. Das rote Glühen erlischt. „Es ist… vorbei."'
+    : `${B.enemy.name} verbeugt sich und tritt ab!`);
+  await sleep(800);
+  await gainXP(14 + B.enemy.lvl*5);
+  if (B.enemy.boss){
+    G.bossDown = true;
+    save();
+    await endBattle();
+    await showCredits();
+    return;
+  }
+  if (B.wanderRef) removeWanderer(B.wanderRef, 30000);
+  await endBattle();
+}
+async function handleMyFaint(){
+  sfx.faint();
+  await tween(450, k => { B.myModel.scale.setScalar(1.5*(1-k*.9)); B.myModel.rotation.z = -k*.6; });
+  blog(`${B.mine.name} braucht eine Pause hinter der Bühne!`);
+  await sleep(800);
+  const alive = G.ensemble.filter(m => m.hp > 0);
+  if (!alive.length){
+    await endBattle();
+    await showDialog('Blackout!', 'Das ganze Ensemble ist erschöpft…\nIhr wacht am Kaffee-&-Kuchen-Stand wieder auf. Ursula hat schon eingeschenkt.');
+    G.ensemble.forEach(m => { m.hp = m.maxHP; });
+    player.position.set(kaffeePos.x - 4, 0, kaffeePos.z);
+    hudUpdate(); save();
+    return;
+  }
+  await chooseSwitch(true);
+}
+function chooseSwitch(forced){
+  return new Promise(res => {
+    const list = $('switch-list');
+    list.innerHTML = '';
+    $('switch-title').textContent = forced ? 'Wen schickst du auf die Bühne?' : 'Wechseln zu…';
+    const candidates = G.ensemble.filter(m => m.hp > 0 && m !== B.mine);
+    for (const m of candidates){
+      const b = document.createElement('button');
+      b.className = 'btn';
+      b.innerHTML = `${m.name} <span class="chip ${m.type}">${TYPE_NAME[m.type]}</span> ${m.lvl} J. · ${m.hp}/${m.maxHP}`;
+      b.onclick = async () => {
+        $('switch-modal').classList.add('hidden');
+        B.mine = m;
+        m.buff = { atk:1, def:1 };
+        placeBattleModels();
+        buildMoveButtons();
+        refreshBattleUI();
+        blog(`Auftritt ${m.name}!`);
+        sfx.click();
+        await sleep(500);
+        res(true);
+      };
+      list.appendChild(b);
+    }
+    if (!forced){
+      const c = document.createElement('button');
+      c.className = 'btn'; c.textContent = 'Abbrechen';
+      c.onclick = () => { $('switch-modal').classList.add('hidden'); res(false); };
+      list.appendChild(c);
+    }
+    $('switch-modal').classList.remove('hidden');
+  });
+}
+
+async function playerTurn(moveKey){
+  if (B.busy || !B.active) return;
+  B.busy = true; setMenuEnabled(false);
+  await doMove(B.mine, B.enemy, moveKey, B.myModel, B.enemyModel, true);
+  refreshBattleUI();
+  if (B.enemy.hp <= 0){ await handleEnemyFaint(); B.busy = false; return; }
+  await enemyTurn();
+  B.busy = false;
+  if (B.active){ setMenuEnabled(true); $('act-cast').disabled = !!B.enemy.boss; }
+}
+
+$('act-cast').onclick = async () => {
+  if (B.busy || !B.active || B.enemy.boss) return;
+  B.busy = true; setMenuEnabled(false);
+  blog(`Du wirfst ${B.enemy.name} das Drehbuch zu…`);
+  // Buch fliegt
+  const book = new THREE.Mesh(new THREE.BoxGeometry(.5,.7,.12), toon('#f1e8d8'));
+  const spine = box(.06,.7,.13,'#a8232f',false); spine.position.x = -.25; book.add(spine);
+  book.position.set(-3, 3, 0);
+  battleScene.add(book);
+  await tween(600, k => {
+    book.position.x = -3 + k*6.4;
+    book.position.y = 3 + Math.sin(k*Math.PI)*1.6 - k*.8;
+    book.rotation.z = k*7;
+  });
+  battleScene.remove(book);
+  await tween(350, k => B.enemyModel.scale.setScalar(1.5*(1-k*.85)));
+  // wackeln
+  for (let i=0;i<3;i++){
+    beep(440 - i*60, .07, 'square', .04);
+    await tween(330, k => B.enemyModel.rotation.z = Math.sin(k*Math.PI*2)*.25);
+  }
+  const p = 0.2 + 0.75 * (1 - B.enemy.hp / B.enemy.maxHP);
+  if (Math.random() < p){
+    sfx.catchOk();
+    burst(3.4, 2.5, 0, '#ffd97a');
+    blog(`${B.enemy.name} unterschreibt! Willkommen im Ensemble!`);
+    B.enemy.hp = Math.max(1, B.enemy.hp);
+    G.ensemble.push(B.enemy);
+    if (B.wanderRef) removeWanderer(B.wanderRef, 0);
+    await sleep(1100);
+    await gainXP(10 + B.enemy.lvl*3);
+    await endBattle();
+    if (G.ensemble.length === maxCatch()){
+      await showDialog('&#x1F3C6;', `ALLE ${maxCatch()} Mitglieder im Ensemble – das komplette Kolpingtheater!\nJetzt kann Logge einpacken.`);
+    }
+  } else {
+    sfx.catchNo();
+    await tween(250, k => B.enemyModel.scale.setScalar(.225 + k*1.275));
+    B.enemyModel.rotation.z = 0;
+    blog(`${B.enemy.name}: „Hmm, ich weiß nicht… überzeug mich erst!"`);
+    await sleep(900);
+    await enemyTurn();
+  }
+  B.busy = false;
+  if (B.active){ setMenuEnabled(true); $('act-cast').disabled = !!B.enemy.boss; }
+};
+$('act-switch').onclick = async () => {
+  if (B.busy || !B.active) return;
+  if (G.ensemble.filter(m => m.hp > 0).length < 2){ blog('Niemand sonst ist einsatzbereit!'); return; }
+  B.busy = true; setMenuEnabled(false);
+  const did = await chooseSwitch(false);
+  if (did) await enemyTurn();
+  B.busy = false;
+  if (B.active){ setMenuEnabled(true); $('act-cast').disabled = !!B.enemy.boss; }
+};
+$('act-flee').onclick = async () => {
+  if (B.busy || !B.active) return;
+  B.busy = true; setMenuEnabled(false);
+  if (B.enemy.boss){
+    blog('Logge versperrt den Weg. „Hier geht NIEMAND, bevor der Vorhang fällt."');
+    await sleep(900);
+    await enemyTurn();
+    B.busy = false;
+    if (B.active) setMenuEnabled(true);
+    return;
+  }
+  blog('Du verbeugst dich und verlässt die Bühne…');
+  await sleep(700);
+  B.busy = false;
+  await endBattle();
+};
+
+/* ================================================================
+   ensemble menu
+================================================================ */
+function openEnsemble(){
+  G.mode = 'menu';
+  const grid = $('ens-grid');
+  grid.innerHTML = '';
+  $('ens-sub').textContent = G.ensemble.length
+    ? `${G.ensemble.length} von ${maxCatch()} gecastet · Klick = nach vorn holen (spielt zuerst)`
+    : 'Noch niemand gecastet – lauf über die Wiese!';
+  const act = activeFighter();
+  for (const m of G.ensemble){
+    const card = document.createElement('div');
+    card.className = 'member-card paper' + (m === act ? ' active-f' : '');
+    card.innerHTML = `
+      <div class="nm">${m.name} <span class="chip ${m.type}">${TYPE_NAME[m.type]}</span></div>
+      <div class="rl">${m.role}</div>
+      <div class="st">${m.lvl} Jahre dabei · &#x2764; ${m.hp}/${m.maxHP} · &#x2694; ${m.atk}</div>
+      <div class="st">&#x2728; ${MOVES[m.moves[0]].n}</div>
+      <div class="hpbar" style="margin-top:5px"><i style="width:${hpPct(m)}%;background:${hpPct(m)>50?'#4caf6e':hpPct(m)>22?'#e8b54a':'#d9483b'}"></i></div>`;
+    card.onclick = () => {
+      G.ensemble.splice(G.ensemble.indexOf(m), 1);
+      G.ensemble.unshift(m);
+      sfx.click(); save(); openEnsemble();
+    };
+    grid.appendChild(card);
+  }
+  $('ensemble').classList.remove('hidden');
+}
+function closeEnsemble(){
+  $('ensemble').classList.add('hidden');
+  G.mode = 'world';
+  hudUpdate();
+}
+$('ens-close').onclick = closeEnsemble;
+$('ens-reset').onclick = () => {
+  if (confirm('Spielstand wirklich löschen?')){
+    localStorage.removeItem(SAVE_KEY);
+    location.reload();
+  }
+};
+
+/* ================================================================
+   credits
+================================================================ */
+async function showCredits(){
+  sfx.fanfare();
+  const sc = $('credits-scroll');
+  const groups = { S:[], T:[], K:[] };
+  RAW.forEach(([n, r, t], i) => groups[t].push(
+    `<div class="nm">${n} <span>· ${r}${i === G.playerId ? ' · das bist du &#x2764;' : ''}</span></div>`));
+  sc.innerHTML = `
+    <h1>CREEPSHOW</h1>
+    <h2>Kolpingtheater Ramsen · 2026 · Die Premiere ist gerettet!</h2>
+    <div class="grp">— REGIE —</div>
+    <div class="nm">Sebastian <span>· Butler Wilson${G.playerId === -2 ? ' · das bist du &#x2764;' : ''}</span></div>
+    <div class="grp">— SCHAUSPIEL —</div>${groups.S.join('')}
+    <div class="grp">— TECHNIK —</div>${groups.T.join('')}
+    <div class="grp">— KOSTÜM —</div>${groups.K.join('')}
+    <div class="grp">— WEBSITE —</div>
+    <div class="nm">Logge <span>· aus dem Schatten zurück ins Team</span></div>
+    <div class="grp">&#x1F39F;</div>
+    <div class="nm"><span>Theatergaudi am 4. Juli · kolpingtheater-ramsen.de</span></div>`;
+  $('credits').classList.remove('hidden');
+  G.mode = 'menu';
+  await new Promise(res => $('credits-close').onclick = res);
+  $('credits').classList.add('hidden');
+  G.mode = 'world';
+}
+
+/* ================================================================
+   title flow
+================================================================ */
+const TYPE_BLURB = {
+  S:'Volle Bühnenpräsenz und dramatische Monologe – Offensive pur.',
+  T:'Blackout und Nebelmaschine auf Knopfdruck – Technik schlägt Schauspiel.',
+  K:'Mit Fundus-Lawine und Anprobe kaum kleinzukriegen.',
+};
+function buildCharSelect(){
+  const grid = $('charsel-grid');
+  grid.innerHTML = '';
+  const choices = [[-2, 'Sebastian', 'Butler Wilson · Regie', 'R'], ...RAW.map(([n, r, t], i) => [i, n, r, t])];
+  for (const [id, n, r, t] of choices){
+    const card = document.createElement('div');
+    card.className = 'member-card paper';
+    card.innerHTML = `
+      <div class="nm">${n} <span class="chip ${t}">${TYPE_NAME[t]}</span></div>
+      <div class="rl">${r}</div>`;
+    card.onclick = () => {
+      sfx.click();
+      setPlayerCharacter(id);
+      $('charsel').classList.add('hidden');
+      buildStarterCards();
+      $('starter').classList.remove('hidden');
+    };
+    grid.appendChild(card);
+  }
+}
+function buildStarterCards(){
+  const wrap = $('starter-cards');
+  wrap.innerHTML = '';
+  // 3 zufällige Starter, möglichst verschiedene Typen, nie der eigene Charakter
+  const shuffled = RAW.map((_, i) => i).filter(i => i !== G.playerId).sort(() => Math.random() - .5);
+  const picks = [];
+  for (const i of shuffled){
+    if (picks.length === 3) break;
+    if (!picks.some(p => RAW[p][2] === RAW[i][2])) picks.push(i);
+  }
+  for (const i of shuffled){ if (picks.length < 3 && !picks.includes(i)) picks.push(i); }
+  for (const idx of picks){
+    const [n, role, type] = RAW[idx];
+    const div = document.createElement('div');
+    div.className = 'starter-card paper';
+    div.innerHTML = `
+      <div class="swatch" style="background:${SHIRT[type][0]}"></div>
+      <h3>${n}</h3>
+      <div class="role">${role}</div>
+      <span class="chip ${type}">${TYPE_NAME[type]}</span>
+      <p>&#x2728; ${SIG[idx].n}<br>${TYPE_BLURB[type]}</p>`;
+    div.onclick = async () => {
+      sfx.catchOk();
+      const m = makeMember(idx, 5);
+      G.ensemble.push(m);
+      $('starter').classList.add('hidden');
+      await enterWorld();
+      await showDialog(`${playerName()} (du)`,
+        `Logge ist der Dunkelheit verfallen: zerrissene Plakate, gestohlene Bühnenpläne – und er schwört, dass der letzte Vorhang fällt.\n` +
+        `${m.name} macht den Anfang. Lauf über die Wiese und überzeuge die anderen (einfach anlaufen). ` +
+        `Ab 6 Mitgliedern stellst du Logge vor der Bühne.\n` +
+        `Kaffee & Kuchen heilen. Und meide die Fotobox nach Einbruch der Nacht.`);
+    };
+    wrap.appendChild(div);
+  }
+}
+async function enterWorld(){
+  $('title').classList.add('hidden');
+  $('hud').classList.remove('hidden');
+  $('hint').classList.remove('hidden');
+  $('mute').classList.remove('hidden');
+  $('minimap').classList.remove('hidden');
+  G.mode = 'world';
+  hudUpdate();
+  save();
+}
+$('btn-new').onclick = () => {
+  audioInit(); sfx.click();
+  localStorage.removeItem(SAVE_KEY);
+  G.ensemble = []; G.bossDown = false;
+  $('title').classList.add('hidden');
+  buildCharSelect();
+  $('charsel').classList.remove('hidden');
+};
+$('btn-continue').onclick = async () => {
+  audioInit(); sfx.click();
+  await enterWorld();
+};
+
+/* ================================================================
+   main loop
+================================================================ */
+const clock = new THREE.Clock();
+let lastInteractHint = '';
+let nextFlash = 9;
+function loop(){
+  requestAnimationFrame(loop);
+  const dt = Math.min(.05, clock.getDelta());
+  const t = clock.elapsedTime;
+
+  if (G.mode === 'battle' || (B.active)){
+    // Idle-Bob im Kampf
+    if (B.myModel){ B.myModel.position.y = 1.5 + Math.sin(t*2.2)*.04; animPerson(B.myModel, false, dt); }
+    if (B.enemyModel){ B.enemyModel.position.y = 1.5 + Math.sin(t*2.2 + 2)*.04; animPerson(B.enemyModel, false, dt); }
+    const dp = dust.geometry.attributes.position;
+    for (let i=0;i<dp.count;i++){
+      dp.setY(i, dp.getY(i) - dt*.25);
+      if (dp.getY(i) < 1.5) dp.setY(i, 8.4);
+    }
+    dp.needsUpdate = true;
+    // Kamera schwebt leicht, Vorhang wogt
+    battleCam.position.x = Math.sin(t*.25)*.9;
+    battleCam.position.y = 4.6 + Math.sin(t*.4)*.25;
+    battleCam.lookAt(0, 1.6, 0);
+    for (const s of ANIM.bCurtains) s.rotation.y = Math.sin(t*1.2 + s.userData.i*.7)*.06;
+    renderer.render(battleScene, battleCam);
+    return;
+  }
+
+  if (G.mode === 'world'){
+    G.encounterCooldown = Math.max(0, G.encounterCooldown - dt);
+    const d = moveDir();
+    if (d.moving){
+      // Eingabe relativ zur Kamera drehen
+      const cy = Math.cos(camYaw), sy = Math.sin(camYaw);
+      const wx = d.x*cy + d.z*sy, wz = -d.x*sy + d.z*cy;
+      const speed = 6.5 * dt;
+      const nx = player.position.x + wx * speed;
+      const nz = player.position.z + wz * speed;
+      if (!collides(nx, player.position.z)) player.position.x = nx;
+      if (!collides(player.position.x, nz)) player.position.z = nz;
+      player.rotation.y = Math.atan2(wx, wz);
+    }
+    animPerson(player, d.moving, dt);
+    player.position.y = d.moving ? Math.abs(Math.sin(player.userData.anim.t)) * .07 : 0;
+    updateWanderers(dt);
+    // Szenerie lebt: Vorhang wogt, Bäume wiegen, Spots schwenken, Hüpfburg wippt, Sterne funkeln
+    for (const s of ANIM.curtains) s.rotation.y = Math.sin(t*1.1 + s.userData.i*.7)*.05;
+    for (const c of ANIM.crowns) c.rotation.z = Math.sin(t*.8 + c.userData.phase)*.045;
+    ANIM.cones.forEach((c,i) => c.rotation.z = c.userData.base + Math.sin(t*.5 + i*Math.PI)*.2);
+    ANIM.spotTargets.forEach((tg,i) => tg.position.x = Math.sin(t*.5 + i*Math.PI)*5.5);
+    ANIM.dome.scale.y = .55 + Math.sin(t*2.6)*.05;
+    ANIM.stars.size = 1.1 + Math.sin(t*1.8)*.3;
+    if (t > nextFlash){
+      nextFlash = t + 5 + Math.random()*7;
+      fotoLight.intensity = 220;
+      setTimeout(() => fotoLight.intensity = 0, 120);
+    }
+    drawMinimap();
+    // Boss tigert vorm Vorhang, Aura flackert bedrohlich
+    bossModel.position.x = Math.sin(t*.4)*4;
+    bossModel.rotation.y = Math.cos(t*.4) > 0 ? Math.PI/2 : -Math.PI/2;
+    animPerson(bossModel, true, dt*.5);
+    evilGlow.intensity = G.bossDown ? 0 : 13 + Math.sin(t*7)*4 + Math.sin(t*23)*2;
+    // Interact-Hinweis
+    const ni = nearestInteract();
+    const hint = ni === 'kaffee' ? 'E – Kaffee & Kuchen (heilt alle)'
+               : ni === 'foto' ? 'E – Fotobox &#x1F4F8;'
+               : ni === 'boss' ? 'E – Logge entgegentreten' : '';
+    if (hint !== lastInteractHint){
+      lastInteractHint = hint;
+      $('interact').innerHTML = hint;
+      $('interact').classList.toggle('hidden', !hint);
+    }
+  } else {
+    animPerson(player, false, dt);
+  }
+
+  // Kamera folgt (Orbit)
+  const hDist = Math.cos(camPitch) * camDist;
+  const camTarget = new THREE.Vector3(
+    player.position.x + Math.sin(camYaw) * hDist,
+    Math.sin(camPitch) * camDist,
+    player.position.z + Math.cos(camYaw) * hDist);
+  camera.position.lerp(camTarget, 1 - Math.pow(.0004, dt));
+  camera.lookAt(player.position.x, 1.4, player.position.z);
+
+  renderer.render(scene, camera);
+}
+
+/* ================================================================
+   boot
+================================================================ */
+(async function boot(){
+  try { await Promise.race([document.fonts.ready, sleep(1800)]); } catch(e){}
+  if (load()) $('btn-continue').classList.remove('hidden');
+  setPlayerCharacter(G.playerId);
+  loop();
+})();
+</script>
+</body>
+</html>
