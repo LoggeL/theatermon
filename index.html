@@ -123,7 +123,13 @@ canvas{display:block;}
 #battle-log{font-size:19px;min-height:28px;margin-bottom:10px;}
 #battle-moves{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
 #battle-moves .btn{text-align:left;font-size:17px;padding:6px 14px;}
-#battle-moves .btn small{color:#6b5d4f;float:right;}
+#battle-moves .btn .mvname{display:block;}
+#battle-moves .btn .mvname small{color:#6b5d4f;float:right;}
+#battle-moves .btn > small{display:block;font-size:13px;color:#6b5d4f;}
+#battle-moves .btn.bored .mvname::after{content:' 😴';}
+#battle-moves .btn.bored{opacity:.8;}
+@keyframes castglow{0%,100%{box-shadow:3px 4px 0 rgba(43,36,33,.85);}50%{box-shadow:0 0 16px 5px rgba(232,181,74,.95);}}
+#act-cast.glow{animation:castglow 1.1s ease-in-out infinite;background:#ffe9b8;}
 #battle-actions{display:flex;gap:8px;margin-top:8px;}
 #battle-actions .btn{flex:1;font-size:16px;padding:6px 8px;}
 
@@ -1222,19 +1228,34 @@ function refreshBattleUI(){
   $('p-lvl').textContent = m.lvl + ' Prod.';
   setBar($('p-hp'), m);
   $('p-xp').style.width = Math.min(100, m.xp / xpNeed(m) * 100) + '%';
+  // Cast-Button leuchtet, sobald der Gegner überzeugbar ist
+  $('act-cast').classList.toggle('glow', !!(B.active && B.enemy && !B.enemy.boss && B.enemy.hp > 0 && hpPct(B.enemy) < 40));
 }
 function blog(t){ $('battle-log').textContent = t; }
+const EFF_DESC = {
+  heal: 'heilt ~38% Motivation',
+  atkUp: 'eigene Präsenz ▲ (mehr Schaden)',
+  defUp: 'Deckung ▲ (weniger Schaden kassieren)',
+  atkDown: 'Gegner-Präsenz ▼ (er trifft schwächer)',
+};
 function buildMoveButtons(){
   const wrap = $('battle-moves');
   wrap.innerHTML = '';
-  for (const key of B.mine.moves){
+  B.mine.moves.forEach((key, i) => {
     const mv = MOVES[key];
     const b = document.createElement('button');
     b.className = 'btn';
-    b.innerHTML = `${mv.n} <small>${TYPE_NAME[mv.t]}${mv.p ? ' · ' + mv.p : ''}</small>`;
+    b.dataset.key = key;
+    b.innerHTML = `<span class="mvname">[${i + 1}] ${mv.n} <small>${TYPE_NAME[mv.t]}</small></span>
+      <small>${mv.p ? 'Kraft ' + mv.p : EFF_DESC[mv.eff]} · ${Math.round((mv.acc ?? .95) * 100)}% Treffer</small>`;
     b.onclick = () => playerTurn(key);
     wrap.appendChild(b);
-  }
+  });
+  updateBoredBadges();
+}
+function updateBoredBadges(){
+  for (const b of $('battle-moves').children)
+    b.classList.toggle('bored', !!B.mine && b.dataset.key === B.mine._lastMove);
 }
 function setMenuEnabled(on){
   document.querySelectorAll('#battle-menu .btn').forEach(b => b.disabled = !on);
@@ -1259,8 +1280,11 @@ async function startBattle(wanderRef, bossInstance){
   B.wanderRef = wanderRef;
   B.enemy = bossInstance || wanderRef.member;
   B.enemy.buff = { atk:1, def:1 };
+  B.enemy._rep = 0; B.enemy._lastMove = null;
   B.mine = activeFighter();
   B.mine.buff = { atk:1, def:1 };
+  B.mine._rep = 0; B.mine._lastMove = null;
+  B.castHintShown = false;
   sfx.encounter();
   $('excl').classList.remove('hidden');
   await sleep(520);
@@ -1288,6 +1312,15 @@ async function startBattle(wanderRef, bossInstance){
     : `${B.enemy.name} (${B.enemy.role}) will erst überzeugt werden!`);
   setMenuEnabled(true);
   $('act-cast').disabled = !!B.enemy.boss;
+  // Einmaliges Tutorial beim ersten Kampf
+  if (!B.enemy.boss && !localStorage.getItem('theatermon-tut')){
+    localStorage.setItem('theatermon-tut', '1');
+    await showDialog('Regie-Tipp',
+      'Motivation = Lebensenergie. Fällt sie auf 0, tritt man ab.\n' +
+      '📖 CASTING wirbt das Mitglied an – je weniger Motivation es noch hat, desto eher sagt es zu. ' +
+      'Besiegen bringt nur Applaus-Punkte, aber KEIN neues Ensemble-Mitglied!\n' +
+      'Und: Wiederholst du dieselbe Nummer, langweilt sich das Publikum – sie verliert jedes Mal Wirkung. 😴');
+  }
 }
 
 async function endBattle(){
@@ -1307,10 +1340,10 @@ async function endBattle(){
 }
 
 /* ---------- battle actions ---------- */
-function dmgCalc(att, def, mv){
+function dmgCalc(att, def, mv, mult = 1){
   const eff = typeEff(mv.t, def.type);
   const variance = .85 + Math.random()*.3;
-  const raw = att.atk * att.buff.atk * (mv.p/22) * eff * variance * def.buff.def;
+  const raw = att.atk * att.buff.atk * (mv.p/22) * eff * variance * def.buff.def * mult;
   return { dmg: Math.max(1, Math.round(raw)), eff };
 }
 let bShake = 0;
@@ -1416,6 +1449,10 @@ function burst(x, y, z, color){
 }
 async function doMove(att, def, key, attModel, defModel, mine){
   const mv = MOVES[key];
+  // Publikum langweilt sich, wenn dieselbe Nummer wiederholt wird
+  att._rep = key === att._lastMove ? (att._rep || 0) + 1 : 0;
+  att._lastMove = key;
+  const boredom = Math.max(.4, 1 - .25 * att._rep);
   blog(`${att.name} setzt ${mv.n} ein!`);
   await sleep(380);
   if (Math.random() > (mv.acc ?? .95)){
@@ -1425,7 +1462,7 @@ async function doMove(att, def, key, attModel, defModel, mine){
     await sleep(600); return;
   }
   if (mv.eff === 'heal'){
-    att.hp = Math.min(att.maxHP, att.hp + Math.round(att.maxHP*.38));
+    att.hp = Math.min(att.maxHP, att.hp + Math.round(att.maxHP*.38*boredom));
     sfx.heal(); pulse(attModel);
     floatText(attModel, '+ Motivation', '#7fe57a');
     await sparkle(attModel, '#7fe57a', 1);
@@ -1453,7 +1490,7 @@ async function doMove(att, def, key, attModel, defModel, mine){
   }
   await dash(attModel, defModel);
   sfx.hit();
-  const { dmg, eff } = dmgCalc(att, def, mv);
+  const { dmg, eff } = dmgCalc(att, def, mv, boredom);
   def.hp = Math.max(0, def.hp - dmg);
   flashWhite(defModel);
   impact(defModel, TYPE_COL[mv.t] || '#ffffff');
@@ -1461,7 +1498,8 @@ async function doMove(att, def, key, attModel, defModel, mine){
   floatText(defModel, '-' + dmg, eff > 1 ? '#ffd97a' : '#ff6b5e');
   refreshBattleUI();
   await flashShake(defModel);
-  if (eff > 1) blog(`Volltreffer – sehr effektiv! (${dmg})`);
+  if (att._rep > 0) blog(`Gähnen im Publikum – die Nummer kennt es schon… (${dmg})`);
+  else if (eff > 1) blog(`Volltreffer – sehr effektiv! (${dmg})`);
   else if (eff < 1) blog(`Hmm, das zieht nicht so recht… (${dmg})`);
   else blog(`Das saß! (${dmg})`);
   await sleep(600);
@@ -1552,6 +1590,7 @@ function chooseSwitch(forced){
         $('switch-modal').classList.add('hidden');
         B.mine = m;
         m.buff = { atk:1, def:1 };
+        m._rep = 0; m._lastMove = null;
         placeBattleModels();
         buildMoveButtons();
         refreshBattleUI();
@@ -1580,10 +1619,18 @@ async function playerTurn(moveKey){
   B.busy = true; setMenuEnabled(false);
   await doMove(B.mine, B.enemy, moveKey, B.myModel, B.enemyModel, true);
   refreshBattleUI();
+  updateBoredBadges();
   if (B.enemy.hp <= 0){ await handleEnemyFaint(); B.busy = false; return; }
   await enemyTurn();
   B.busy = false;
-  if (B.active){ setMenuEnabled(true); $('act-cast').disabled = !!B.enemy.boss; }
+  if (B.active){
+    setMenuEnabled(true);
+    $('act-cast').disabled = !!B.enemy.boss;
+    if (!B.enemy.boss && hpPct(B.enemy) < 40 && !B.castHintShown){
+      B.castHintShown = true;
+      blog(`${B.enemy.name} wankt – jetzt casten! 📖`);
+    }
+  }
 }
 
 $('act-cast').onclick = async () => {
