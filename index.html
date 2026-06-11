@@ -399,7 +399,9 @@ $('mute').addEventListener('click', () => { muted = !muted; $('mute').innerHTML 
 ================================================================ */
 const TYPE_NAME = { S:'Schauspiel', T:'Technik', K:'Kostüm', R:'Regie', W:'Website' };
 function typeEff(att, def){
-  if (att==='R' || att==='W') return 1.25;
+  // Regie & Website: Glass Cannon — teilen breit aus, stecken aber überall mehr ein
+  if (def==='R' || def==='W') return 1.25;
+  if (att==='R' || att==='W') return 1.15;
   if (att==='T'&&def==='S' || att==='S'&&def==='K' || att==='K'&&def==='T') return 1.6;
   if (att==='S'&&def==='T' || att==='K'&&def==='S' || att==='T'&&def==='K') return 0.65;
   return 1;
@@ -578,13 +580,13 @@ function levelUp(m){
 }
 function xpNeed(m){ return m.lvl * 24; }
 function makeBoss(){
-  // Boss skaliert mit dem Team statt statischer Werte
-  const teamL = G.ensemble.length
-    ? G.ensemble.reduce((s, m) => s + m.lvl, 0) / G.ensemble.length : 6;
+  // Boss skaliert mit den Top-4 des Teams — viele schwache Member casten macht ihn nicht leichter
+  const lvls = G.ensemble.map(m => m.lvl).sort((a, b) => b - a).slice(0, 4);
+  const teamL = lvls.length ? lvls.reduce((s, l) => s + l, 0) / lvls.length : 6;
   const L = Math.round(teamL) + 2;
   const b = {
     id:-1, name:'Logge', role:'Der Saboteur', type:'W', lvl:11,
-    maxHP: 70 + L*14, hp: 70 + L*14, atk: 10 + Math.round(L*2.2), xp:0,
+    maxHP: 90 + L*16, hp: 90 + L*16, atk: 10 + Math.round(L*1.9), xp:0,
     moves:['absage','sabotage','vorhang','drohung'],
     palette:{ skin:SKIN[0], hair:'#1a1a1a', shirt:'#1d1f29', pants:'#14151f', longHair:false, cap:false, evil:true },
     buff:{ atk:1, def:1 }, boss:true,
@@ -765,19 +767,27 @@ function animPerson(g, moving, dt){
 }
 
 /* ---------- name label sprites ---------- */
-function makeLabel(name, role, typeCol){
-  const cv = document.createElement('canvas'); cv.width = 360; cv.height = 110;
+function makeLabel(name, role, typeCol, lvlText, lvlCol){
+  // mit lvlText: dritte, farbige Zeile oben (Level-Schild der Wanderer)
+  const tall = !!lvlText;
+  const cv = document.createElement('canvas'); cv.width = 360; cv.height = tall ? 150 : 110;
   const c = cv.getContext('2d');
   c.textAlign = 'center';
   c.lineWidth = 7; c.strokeStyle = 'rgba(15,13,25,.9)';
+  let y = 44;
+  if (tall){
+    c.font = "31px Schoolbell, cursive";
+    c.strokeText(lvlText, 180, 34); c.fillStyle = lvlCol; c.fillText(lvlText, 180, 34);
+    y = 84;
+  }
   c.font = "34px Schoolbell, cursive";
-  c.strokeText(name, 180, 44); c.fillStyle = '#f7f1e3'; c.fillText(name, 180, 44);
+  c.strokeText(name, 180, y); c.fillStyle = '#f7f1e3'; c.fillText(name, 180, y);
   c.font = "25px Caveat, cursive";
-  c.strokeText(role, 180, 82); c.fillStyle = typeCol; c.fillText(role, 180, 82);
+  c.strokeText(role, 180, y+38); c.fillStyle = typeCol; c.fillText(role, 180, y+38);
   const tex = new THREE.CanvasTexture(cv);
   const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: true }));
-  sp.scale.set(3.4, 1.04, 1);
-  sp.position.y = 2.15;
+  sp.scale.set(3.4, tall ? 1.42 : 1.04, 1);
+  sp.position.y = tall ? 2.35 : 2.15;
   return sp;
 }
 const TYPE_COL = { S:'#ff9d76', T:'#9cc8ff', K:'#e0a3ff', R:'#ffd97a', W:'#7fe3dc' };
@@ -1140,11 +1150,17 @@ function spawnWanderer(){
   if (!avail.length) return;
   const id = avail[Math.floor(Math.random()*avail.length)];
   const type = RAW[id][2];
-  const member = makeMember(id);   // Level = echte Produktions-Anzahl
+  // Wild-Level an den eigenen Fortschritt koppeln: echte Produktions-Anzahl, aber max. bestes Member +3
+  const best = G.ensemble.length ? Math.max(...G.ensemble.map(m => m.lvl)) : 3;
+  const member = makeMember(id, Math.min(RAW[id][3], best + 3));
   const model = buildPerson(member.palette);
   const spot = zoneSpot(type);
   model.position.set(spot.x, 0, spot.z);
-  model.add(makeLabel(member.name, `${member.role} · ${member.lvl} Prod.`, TYPE_COL[member.type]));
+  // Level-Schild: rot ▲ = deutlich stärker als dein bestes Member, grün ▼ = deutlich schwächer
+  const diff = member.lvl - best;
+  const lvlCol = diff >= 2 ? '#ff6b5e' : diff <= -2 ? '#7fe57a' : '#ffd97a';
+  const lvlTag = `Lv. ${member.lvl}` + (diff >= 2 ? ' ▲' : diff <= -2 ? ' ▼' : '');
+  model.add(makeLabel(member.name, member.role, TYPE_COL[member.type], lvlTag, lvlCol));
   scene.add(model);
   wanderers.push({ member, model, target: zoneSpot(type), pauseT: 0 });
 }
@@ -1240,7 +1256,7 @@ function hudUpdate(){
   $('hud-total').textContent = maxCatch();
   const act = activeFighter();
   $('hud-fighter').innerHTML = G.ensemble.slice(0, 8).map(m =>
-    `<div>${m === act ? '&#x2B50;' : '&#x1F3AD;'} ${m.name} <span class="chip ${m.type}">${TYPE_NAME[m.type]}</span> ${m.lvl}P · ${m.hp}/${m.maxHP}</div>`
+    `<div>${m === act ? '&#x2B50;' : '&#x1F3AD;'} ${m.name} <span class="chip ${m.type}">${TYPE_NAME[m.type]}</span> Lv. ${m.lvl} · ${m.hp}/${m.maxHP}</div>`
   ).join('') + (G.ensemble.length > 8 ? `<div>… +${G.ensemble.length - 8} weitere (Esc)</div>` : '');
 }
 
@@ -1393,11 +1409,13 @@ function refreshBattleUI(){
   const e = B.enemy, m = B.mine;
   $('e-name').innerHTML = `${e.name} <span class="chip ${e.type}">${TYPE_NAME[e.type]}</span>`;
   $('e-role').textContent = e.role;
-  $('e-lvl').textContent = e.lvl + ' Prod.';
+  const d = e.lvl - m.lvl;
+  $('e-lvl').textContent = 'Lv. ' + e.lvl + (d >= 2 ? ' ▲' : d <= -2 ? ' ▼' : '');
+  $('e-lvl').style.color = d >= 2 ? '#b3362b' : d <= -2 ? '#3c7d46' : '';
   setBar($('e-hp'), e);
   $('p-name').innerHTML = `${m.name} <span class="chip ${m.type}">${TYPE_NAME[m.type]}</span>`;
   $('p-role').textContent = `${m.role} · ${m.hp}/${m.maxHP}`;
-  $('p-lvl').textContent = m.lvl + ' Prod.';
+  $('p-lvl').textContent = 'Lv. ' + m.lvl;
   setBar($('p-hp'), m);
   $('p-xp').style.width = Math.min(100, m.xp / xpNeed(m) * 100) + '%';
   // Cast-Button leuchtet, sobald der Gegner überzeugbar ist
@@ -1405,7 +1423,7 @@ function refreshBattleUI(){
 }
 function blog(t){ $('battle-log').textContent = t; }
 const EFF_DESC = {
-  heal: 'heilt ~38% Motivation',
+  heal: 'heilt ~28% Motivation',
   atkUp: 'eigene Präsenz ▲ (mehr Schaden)',
   defUp: 'Deckung ▲ (weniger Schaden kassieren)',
   atkDown: 'Gegner-Präsenz ▼ (er trifft schwächer)',
@@ -1457,6 +1475,7 @@ async function startBattle(wanderRef, bossInstance){
   B.mine.buff = { atk:1, def:1 };
   B.mine._rep = 0; B.mine._lastMove = null;
   B.castHintShown = false;
+  B.bossShake = 0;
   sfx.encounter();
   $('excl').classList.remove('hidden');
   await sleep(520);
@@ -1489,7 +1508,9 @@ async function startBattle(wanderRef, bossInstance){
     localStorage.setItem('theatermon-tut', '1');
     await showDialog('Regie-Tipp',
       'Motivation = Lebensenergie. Fällt sie auf 0, tritt man ab.\n' +
+      'Lv. = Bühnenerfahrung in Produktionen. Rotes Lv. ▲ über einem Kopf heißt: deutlich stärker als dein Team!\n' +
       '📖 CASTING wirbt das Mitglied an – je weniger Motivation es noch hat, desto eher sagt es zu. ' +
+      'Veteranen mit vielen Produktionen zieren sich länger – Lampenfieber (Präsenz ▼) macht sie gesprächsbereiter. ' +
       'Besiegen bringt nur Applaus-Punkte, aber KEIN neues Ensemble-Mitglied!\n' +
       'Und: Wiederholst du dieselbe Nummer, langweilt sich das Publikum – sie verliert jedes Mal Wirkung. 😴');
   }
@@ -1634,7 +1655,7 @@ async function doMove(att, def, key, attModel, defModel, mine){
     await sleep(600); return;
   }
   if (mv.eff === 'heal'){
-    att.hp = Math.min(att.maxHP, att.hp + Math.round(att.maxHP*.38*boredom));
+    att.hp = Math.min(att.maxHP, att.hp + Math.round(att.maxHP*.28*boredom));
     sfx.heal(); pulse(attModel);
     floatText(attModel, '+ Motivation', '#7fe57a');
     await sparkle(attModel, '#7fe57a', 1);
@@ -1654,7 +1675,9 @@ async function doMove(att, def, key, attModel, defModel, mine){
     blog(`${att.name} ist jetzt schwerer zu treffen!`); await sleep(450); return;
   }
   if (mv.eff === 'atkDown'){
-    def.buff.atk = Math.max(.4, def.buff.atk * .65); sfx.hit();
+    def.buff.atk = .65; sfx.hit();   // stackt nicht — einmal Lampenfieber ist genug
+    if (def.boss) B.bossShake = 0;
+
     floatText(defModel, 'Präsenz ▼', '#b85cc4');
     await sparkle(defModel, '#b85cc4', -1);
     await flashShake(defModel);
@@ -1678,9 +1701,24 @@ async function doMove(att, def, key, attModel, defModel, mine){
 }
 async function enemyTurn(){
   const e = B.enemy;
+  // Logge schüttelt Lampenfieber nach ein paar Runden wieder ab
+  if (e.boss && e.buff.atk < 1 && ++B.bossShake >= 3){
+    B.bossShake = 0; e.buff.atk = 1;
+    floatText(B.enemyModel, 'Präsenz ▲', '#ff6b5e');
+    blog('Logge sammelt sich – das Lampenfieber verfliegt!');
+    await sleep(550);
+  }
   const atkMoves = e.moves.filter(k => MOVES[k].p > 0 && !MOVES[k].eff);
-  const utilMoves = e.moves.filter(k => !MOVES[k].p || MOVES[k].eff);
-  const key = (utilMoves.length && Math.random() < .3) ? pick(Math.random, utilMoves) : pick(Math.random, atkMoves);
+  // Util-Moves nur, wenn sie gerade etwas bringen
+  const utilMoves = e.moves.filter(k => {
+    const mv = MOVES[k];
+    if (mv.eff === 'heal')    return e.hp < e.maxHP * .55;
+    if (mv.eff === 'atkUp')   return e.buff.atk === 1;
+    if (mv.eff === 'defUp')   return e.buff.def === 1;
+    if (mv.eff === 'atkDown') return B.mine.buff.atk >= 1;
+    return false;
+  });
+  const key = (utilMoves.length && Math.random() < .35) ? pick(Math.random, utilMoves) : pick(Math.random, atkMoves);
   await doMove(e, B.mine, key, B.enemyModel, B.myModel, false);
   refreshBattleUI();
   if (B.mine.hp <= 0) await handleMyFaint();
@@ -1689,6 +1727,15 @@ async function gainXP(amount){
   const m = B.mine;
   m.xp += amount;
   blog(`${m.name} bekommt ${amount} Applaus-Punkte!`);
+  // die Bank lernt vom Zuschauen mit (30 %)
+  const share = Math.max(1, Math.round(amount * .3));
+  const benchUps = [];
+  for (const b of G.ensemble){
+    if (b === m) continue;
+    b.xp += share;
+    while (b.xp >= xpNeed(b)){ b.xp -= xpNeed(b); levelUp(b); benchUps.push(b.name); }
+  }
+  if (benchUps.length) blog(`Vom Zuschauen gelernt: ${benchUps.join(', ')} +1 Produktion! ⭐`);
   refreshBattleUI();
   await sleep(700);
   while (m.xp >= xpNeed(m)){
@@ -1698,7 +1745,7 @@ async function gainXP(amount){
     burst(-3.4, 2.5, 0, '#7fe3dc');
     floatText(B.myModel, '+1 Produktion ⭐', '#7fe3dc');
     pulse(B.myModel);
-    blog(`${m.name} steht jetzt bei ${m.lvl} Produktionen!`);
+    blog(`${m.name} steigt auf Lv. ${m.lvl}!`);
     refreshBattleUI();
     await sleep(900);
   }
@@ -1757,7 +1804,7 @@ function chooseSwitch(forced){
     for (const m of candidates){
       const b = document.createElement('button');
       b.className = 'btn';
-      b.innerHTML = `${m.name} <span class="chip ${m.type}">${TYPE_NAME[m.type]}</span> ${m.lvl} Prod. · ${m.hp}/${m.maxHP}`;
+      b.innerHTML = `${m.name} <span class="chip ${m.type}">${TYPE_NAME[m.type]}</span> Lv. ${m.lvl} · ${m.hp}/${m.maxHP}`;
       b.onclick = async () => {
         $('switch-modal').classList.add('hidden');
         B.mine = m;
@@ -1827,7 +1874,11 @@ $('act-cast').onclick = async () => {
     beep(440 - i*60, .07, 'square', .04);
     await tween(330, k => B.enemyModel.rotation.z = Math.sin(k*Math.PI*2)*.25);
   }
-  const p = 0.2 + 0.75 * (1 - B.enemy.hp / B.enemy.maxHP);
+  // wenig Motivation = leichter zu überzeugen · Veteranen zieren sich · Lampenfieber macht gesprächsbereit
+  const p = Math.max(.05,
+    .08 + .75 * (1 - B.enemy.hp / B.enemy.maxHP)
+    - B.enemy.lvl * .015
+    + (B.enemy.buff.atk < 1 ? .15 : 0));
   if (Math.random() < p){
     sfx.catchOk();
     burst(3.4, 2.5, 0, '#ffd97a');
@@ -1898,7 +1949,7 @@ function openEnsemble(){
     card.innerHTML = `
       <div class="nm">${m.name} <span class="chip ${m.type}">${TYPE_NAME[m.type]}</span></div>
       <div class="rl">${m.role}</div>
-      <div class="st">${m.lvl} Produktionen · &#x2764; ${m.hp}/${m.maxHP} · &#x2694; ${m.atk}</div>
+      <div class="st">Lv. ${m.lvl} (${m.lvl} Produktionen) · &#x2764; ${m.hp}/${m.maxHP} · &#x2694; ${m.atk}</div>
       <div class="st">&#x2728; ${MOVES[m.moves[0]].n}</div>
       <div class="hpbar" style="margin-top:5px"><i style="width:${hpPct(m)}%;background:${hpPct(m)>50?'#4caf6e':hpPct(m)>22?'#e8b54a':'#d9483b'}"></i></div>`;
     card.onclick = () => {
@@ -1997,13 +2048,13 @@ function buildStarterCards(){
     div.innerHTML = `
       <div class="swatch" style="background:${SHIRT[type][0]}"></div>
       <h3>${n}</h3>
-      <div class="role">${role} · ${RAW[idx][3]} Prod.</div>
+      <div class="role">${role} · startet auf Lv. 3</div>
       <span class="chip ${type}">${TYPE_NAME[type]}</span>
       <p>&#x2728; ${SIG[idx].n}<br>${TYPE_BLURB[type]}</p>`;
     div.onclick = async () => {
       sfx.catchOk();
       G.ensemble = []; G.bossDown = false;   // neuer Run beginnt erst jetzt wirklich
-      const m = makeMember(idx);
+      const m = makeMember(idx, 3);          // alle Starter beginnen bei 3 Prod. — faire Ausgangslage
       G.ensemble.push(m);
       $('starter').classList.add('hidden');
       await enterWorld();
