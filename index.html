@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>THEATERMON · Kolpingtheater Ramsen Edition</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -15,9 +15,10 @@
   --shadow: 3px 4px 0 rgba(43,36,33,.85);
 }
 *{box-sizing:border-box; margin:0; padding:0;}
-html,body{width:100%;height:100%;overflow:hidden;background:#141831;}
+html,body{width:100%;height:100%;overflow:hidden;background:#141831;overscroll-behavior:none;}
 body{font-family:'Schoolbell',cursive;color:var(--ink);}
 canvas{display:block;}
+#game canvas{touch-action:none;}
 #game{position:fixed;inset:0;}
 
 /* ---------- hand-drawn building blocks ---------- */
@@ -196,6 +197,29 @@ canvas{display:block;}
   #player-card{bottom:auto;top:70px;right:14px;}
   #battle-ui .card{min-width:190px;}
 }
+
+/* ---------- Touch-Steuerung (Handy) ---------- */
+#joystick{position:fixed;left:max(18px,env(safe-area-inset-left));bottom:max(24px,env(safe-area-inset-bottom));
+  width:132px;height:132px;border-radius:50%;z-index:13;touch-action:none;
+  background:radial-gradient(circle at 50% 50%, rgba(247,241,227,.20), rgba(247,241,227,.06));
+  border:2.5px solid rgba(247,241,227,.55);box-shadow:var(--shadow);}
+#joynub{position:absolute;left:50%;top:50%;width:58px;height:58px;margin:-29px 0 0 -29px;border-radius:50%;
+  background:var(--paper);border:2.5px solid var(--ink);box-shadow:2px 3px 0 rgba(43,36,33,.7);
+  transition:transform .05s linear;pointer-events:none;}
+#touch-action{position:fixed;right:max(20px,env(safe-area-inset-right));bottom:max(30px,env(safe-area-inset-bottom));
+  z-index:13;width:84px;height:84px;border-radius:50%;font-size:32px;padding:0;line-height:1;
+  display:flex;align-items:center;justify-content:center;touch-action:manipulation;}
+#touch-action.ready{background:#ffe9b8;animation:castglow 1.1s ease-in-out infinite;}
+#touch-menu{position:fixed;top:14px;right:64px;z-index:13;font-size:15px;padding:6px 12px;touch-action:manipulation;}
+body.touch #hint{display:none;}
+
+@media (max-width:640px){
+  #minimap{width:110px;height:110px;top:58px;}
+  #hud{min-width:0;padding:8px 12px;}
+  #hud .count{font-size:17px;} #hud .fighter{font-size:13px;}
+  #dialog .text{font-size:17px;} #battle-log{font-size:16px;}
+  #battle-moves .btn{font-size:15px;padding:6px 10px;}
+}
 </style>
 </head>
 <body>
@@ -246,6 +270,11 @@ canvas{display:block;}
 <div id="hint" class="paper hidden">WASD laufen · Maus zieht Kamera · E interagieren · Esc Ensemble</div>
 <button id="mute" class="btn hidden">&#x1F50A;</button>
 <div id="interact" class="paper hidden"></div>
+
+<!-- ============ TOUCH CONTROLS ============ -->
+<div id="joystick" class="hidden"><div id="joynub"></div></div>
+<button id="touch-action" class="btn hidden">&#x1F440;</button>
+<button id="touch-menu" class="btn hidden">&#x1F3AD; Ensemble</button>
 
 <!-- ============ DIALOG ============ -->
 <div id="dialog" class="layer hidden">
@@ -909,6 +938,7 @@ function setPlayerCharacter(id){
 }
 
 const keys = {};
+const touchVec = { x:0, z:0, active:false };   // virtueller Joystick (Handy)
 addEventListener('keydown', e => {
   keys[e.key.toLowerCase()] = true;
   if (e.key === 'Escape'){
@@ -929,20 +959,69 @@ addEventListener('keydown', e => {
 });
 addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
 
-// Kamera-Orbit: Maus ziehen dreht, Rad zoomt
+// Kamera-Orbit: 1 Finger/Maus dreht, 2 Finger zoomen (Pinch), Rad zoomt
 let camYaw = 0, camPitch = .58, camDist = 14;
 let dragging = false, lastX = 0, lastY = 0;
 const cnv = renderer.domElement;
+const ptrs = new Map();
+let pinchDist = 0;
 cnv.addEventListener('contextmenu', e => e.preventDefault());
-cnv.addEventListener('pointerdown', e => { dragging = true; lastX = e.clientX; lastY = e.clientY; cnv.setPointerCapture(e.pointerId); });
+cnv.addEventListener('pointerdown', e => {
+  ptrs.set(e.pointerId, { x:e.clientX, y:e.clientY });
+  if (ptrs.size === 1){ dragging = true; lastX = e.clientX; lastY = e.clientY; }
+  cnv.setPointerCapture(e.pointerId);
+});
 cnv.addEventListener('pointermove', e => {
+  if (!ptrs.has(e.pointerId)) return;
+  ptrs.set(e.pointerId, { x:e.clientX, y:e.clientY });
+  if (ptrs.size >= 2){
+    const [a, b] = [...ptrs.values()];
+    const d = Math.hypot(a.x - b.x, a.y - b.y);
+    if (pinchDist) camDist = Math.min(24, Math.max(7, camDist + (pinchDist - d) * .03));
+    pinchDist = d; dragging = false;
+    return;
+  }
   if (!dragging) return;
   camYaw -= (e.clientX - lastX) * .0055;
   camPitch = Math.min(1.25, Math.max(.18, camPitch + (e.clientY - lastY) * .004));
   lastX = e.clientX; lastY = e.clientY;
 });
-addEventListener('pointerup', () => dragging = false);
+function endPtr(e){
+  ptrs.delete(e.pointerId);
+  if (ptrs.size < 2) pinchDist = 0;
+  if (ptrs.size === 0){ dragging = false; }
+  else { const p = [...ptrs.values()][0]; lastX = p.x; lastY = p.y; dragging = true; }
+}
+cnv.addEventListener('pointerup', endPtr);
+cnv.addEventListener('pointercancel', endPtr);
 cnv.addEventListener('wheel', e => { camDist = Math.min(24, Math.max(7, camDist + e.deltaY * .012)); }, { passive:true });
+
+/* ---------- Touch-Steuerung (Handy): Joystick + Aktions-/Menü-Button ---------- */
+const isTouch = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+if (isTouch){
+  document.body.classList.add('touch');
+  const joy = $('joystick'), nub = $('joynub');
+  let joyId = null;
+  function resetJoy(){ joyId = null; touchVec.active = false; touchVec.x = touchVec.z = 0; nub.style.transform = 'translate(0,0)'; }
+  function updateJoy(e){
+    const r = joy.getBoundingClientRect(), max = r.width / 2;
+    let dx = e.clientX - (r.left + max), dy = e.clientY - (r.top + max);
+    const dist = Math.hypot(dx, dy);
+    if (dist > max){ dx *= max / dist; dy *= max / dist; }
+    nub.style.transform = `translate(${dx}px,${dy}px)`;
+    touchVec.x = dx / max; touchVec.z = dy / max;   // wie WASD: x=rechts, z=vor/zurück (Kamera rotiert es im Loop)
+    touchVec.active = dist > max * .18;
+  }
+  joy.addEventListener('pointerdown', e => { joyId = e.pointerId; joy.setPointerCapture(e.pointerId); updateJoy(e); e.preventDefault(); });
+  joy.addEventListener('pointermove', e => { if (e.pointerId === joyId) updateJoy(e); });
+  joy.addEventListener('pointerup', e => { if (e.pointerId === joyId) resetJoy(); });
+  joy.addEventListener('pointercancel', e => { if (e.pointerId === joyId) resetJoy(); });
+  $('touch-action').addEventListener('click', () => { if (G.mode === 'world') tryInteract(); });
+  $('touch-menu').addEventListener('click', () => {
+    if (G.mode === 'world') openEnsemble();
+    else if (G.mode === 'menu' && !$('ensemble').classList.contains('hidden')) closeEnsemble();
+  });
+}
 
 function moveDir(){
   let x = 0, z = 0;
@@ -950,8 +1029,10 @@ function moveDir(){
   if (keys['s']||keys['arrowdown']) z += 1;
   if (keys['a']||keys['arrowleft']) x -= 1;
   if (keys['d']||keys['arrowright']) x += 1;
-  const l = Math.hypot(x,z) || 1;
-  return { x:x/l, z:z/l, moving: !!(x||z) };
+  if (touchVec.active){ x += touchVec.x; z += touchVec.z; }
+  const l = Math.hypot(x,z);
+  if (!l) return { x:0, z:0, moving:false, mag:0 };
+  return { x:x/l, z:z/l, moving:true, mag: Math.min(1, l) };
 }
 function collides(x, z){
   if (Math.hypot(x, z) > 112) return true;
@@ -1890,6 +1971,15 @@ function loop(){
   const dt = Math.min(.05, clock.getDelta());
   const t = clock.elapsedTime;
 
+  // Touch-Bedienelemente nur in der Welt zeigen (Kampf/Dialog haben eigene Buttons)
+  if (document.body.classList.contains('touch')){
+    const showMove = G.mode === 'world';
+    $('joystick').classList.toggle('hidden', !showMove);
+    $('touch-action').classList.toggle('hidden', !showMove);
+    $('touch-menu').classList.toggle('hidden', !(G.mode === 'world' || G.mode === 'menu'));
+    if (!showMove && touchVec.active){ touchVec.active = false; touchVec.x = touchVec.z = 0; $('joynub').style.transform = 'translate(0,0)'; }
+  }
+
   if (G.mode === 'battle' || (B.active)){
     // Idle-Bob im Kampf
     if (B.myModel){ if (!B.busy) B.myModel.position.y = 1.5 + Math.sin(t*2.2)*.04; animPerson(B.myModel, false, dt); }
@@ -1917,7 +2007,7 @@ function loop(){
       // Eingabe relativ zur Kamera drehen
       const cy = Math.cos(camYaw), sy = Math.sin(camYaw);
       const wx = d.x*cy + d.z*sy, wz = -d.x*sy + d.z*cy;
-      const speed = 6.5 * dt;
+      const speed = 6.5 * dt * (d.mag || 1);
       const nx = player.position.x + wx * speed;
       const nz = player.position.z + wz * speed;
       if (!collides(nx, player.position.z)) player.position.x = nx;
@@ -1954,6 +2044,10 @@ function loop(){
       lastInteractHint = hint;
       $('interact').innerHTML = hint;
       $('interact').classList.toggle('hidden', !hint);
+      if (document.body.classList.contains('touch')){
+        $('touch-action').textContent = ni === 'kaffee' ? '☕' : ni === 'foto' ? '📷' : ni === 'boss' ? '⚔️' : '👀';
+        $('touch-action').classList.toggle('ready', !!ni);
+      }
     }
   } else {
     animPerson(player, false, dt);
