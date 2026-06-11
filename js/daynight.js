@@ -58,7 +58,7 @@ for (const k of KEYS){
 // Tag-Faktor (Logges Glühen pulsiert tagsüber nur halb so stark).
 // Objekte statt Re-Export, weil importierte Bindings read-only sind.
 export const lightOffset = { x:-50, y:80, z:-30 };
-export const cur = { day:0 };
+export const cur = { day:0, dayCount:0 };   // dayCount: Spieltag-Zähler für Einmal-pro-Tag-Aktionen
 
 const lerp = (a, b, k) => a + (b - a)*k;
 
@@ -78,7 +78,9 @@ export function getPhase(){
 export const isNight = () => getPhase() === 'nacht';
 
 export function update(dt){
-  G.timeOfDay = (G.timeOfDay + dt/DAY_LEN) % 1;
+  const nt = G.timeOfDay + dt/DAY_LEN;
+  if (nt >= 1) cur.dayCount++;   // Mitternacht überschritten → neuer Spieltag
+  G.timeOfDay = nt % 1;
   apply();
 }
 

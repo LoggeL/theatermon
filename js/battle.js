@@ -124,9 +124,10 @@ export async function startBattle(wanderRef, bossInstance){
   B.enemy.buff = { atk:1, def:1 };
   B.enemy._rep = 0; B.enemy._lastMove = null;
   B.mine = activeFighter();
-  // Käselaib gegessen? Dann startet der erste Auftritt mit Präsenz ▲
+  // Käselaib gegessen / frisches Fundus-Kostüm? Einmal-Buffs für den ersten Auftritt
   B.cheese = G.cheesePower; G.cheesePower = false;
-  B.mine.buff = { atk: B.cheese ? 1.5 : 1, def:1 };
+  B.garde = G.costumePower; G.costumePower = false;
+  B.mine.buff = { atk: B.cheese ? 1.5 : 1, def: B.garde ? .75 : 1 };
   B.mine._rep = 0; B.mine._lastMove = null;
   B.castHintShown = false;
   B.bossShake = 0;
@@ -158,6 +159,7 @@ export async function startBattle(wanderRef, bossInstance){
     ? '*RASCHEL!* Beatrice reckt sich zu voller Größe – der Blumentopf ächzt bedrohlich.'
     : `${B.enemy.name} (${B.enemy.role}): „${roleLines(B.enemy).enc}"`);
   if (B.cheese){ floatText(B.myModel, 'Käse-Power ▲ 🧀', '#f4d35e'); sfx.heal(); }
+  if (B.garde){ floatText(B.myModel, 'Garderobe sitzt ▲ 🧵', '#9cc8ff'); sfx.heal(); }
   setMenuEnabled(true);
   $('act-cast').disabled = !!(B.enemy.boss || B.enemy.mini);
   // Einmaliges Tutorial beim ersten Kampf

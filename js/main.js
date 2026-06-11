@@ -90,6 +90,7 @@ function moveDir(){
 ================================================================ */
 const CAM_V = new THREE.Vector3();
 let nextFlash = 9;
+let curNi = null;   // aktuell interagierbares Objekt — steuert den Touch-Action-Button
 function loop(){
   requestAnimationFrame(loop);
   const dt = Math.min(.05, clock.getDelta());
@@ -99,7 +100,8 @@ function loop(){
   if (document.body.classList.contains('touch')){
     const showMove = G.mode === 'world';
     $('joystick').classList.toggle('hidden', !showMove);
-    $('touch-action').classList.toggle('hidden', !showMove);
+    // Action-Button nur zeigen, wenn es auch etwas zu tun gibt (sonst verwirrt er nur)
+    $('touch-action').classList.toggle('hidden', !showMove || !curNi);
     $('touch-menu').classList.toggle('hidden', !(G.mode === 'world' || G.mode === 'menu'));
     if (!showMove && touchVec.active){ touchVec.active = false; touchVec.x = touchVec.z = 0; $('joynub').style.transform = 'translate(0,0)'; }
   }
@@ -176,6 +178,7 @@ function loop(){
     evilGlow.intensity = G.bossDown ? 0 : (13 + Math.sin(t*7)*4 + Math.sin(t*23)*2) * (1 - .5*daynight.cur.day);
     // Interact-Hinweis
     const ni = nearestInteract();
+    curNi = ni;
     const hint = ni === 'kaffee' ? 'E – Kaffee & Kuchen (heilt alle)'
                : ni === 'foto' ? 'E – Fotobox &#x1F4F8;'
                : ni === 'sark' ? 'E – Sarkophag (es klopft von innen)'
@@ -185,13 +188,16 @@ function loop(){
                : ni === 'thron' ? 'E – Auf Isets Thron setzen &#x1F451;'
                : ni === 'hirn' ? 'E – Hirntauschinator 3000 &#x1F9E0;'
                : ni === 'kaese' ? 'E – Emils Käselaib &#x1F9C0;'
+               : ni === 'huepf' ? 'E – Hüpfburg: Sprungtraining &#x1F938;'
+               : ni === 'fundus' ? 'E – Fundus: neu einkleiden &#x1F9F5;'
+               : ni === 'probe' ? 'E – Generalprobe auf der Bühne &#x1F3AD;'
                : ni === 'boss' ? 'E – Logge entgegentreten' : '';
     if (hint !== fx.lastInteractHint){
       fx.lastInteractHint = hint;
       $('interact').innerHTML = hint;
       $('interact').classList.toggle('hidden', !hint);
       if (document.body.classList.contains('touch')){
-        $('touch-action').textContent = ni === 'kaffee' ? '☕' : ni === 'foto' ? '📷' : ni === 'sark' ? '⚰️' : ni === 'plant' ? '🪴' : ni === 'galerie' ? '🖼️' : ni === 'teich' ? '🐊' : ni === 'thron' ? '👑' : ni === 'hirn' ? '🧠' : ni === 'kaese' ? '🧀' : ni === 'boss' ? '⚔️' : '👀';
+        $('touch-action').textContent = ni === 'kaffee' ? '☕' : ni === 'foto' ? '📷' : ni === 'sark' ? '⚰️' : ni === 'plant' ? '🪴' : ni === 'galerie' ? '🖼️' : ni === 'teich' ? '🐊' : ni === 'thron' ? '👑' : ni === 'hirn' ? '🧠' : ni === 'kaese' ? '🧀' : ni === 'huepf' ? '🤸' : ni === 'fundus' ? '🧵' : ni === 'probe' ? '🎭' : ni === 'boss' ? '⚔️' : '👀';
         $('touch-action').classList.toggle('ready', !!ni);
       }
     }

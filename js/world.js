@@ -4,12 +4,12 @@
 import * as THREE from 'three';
 import { $, tween, mulberry } from './util.js';
 import { RAW, TOTAL, TYPE_COL, AHNEN_QUOTES } from './data.js';
-import { G, save, caughtIds, makeMember, makeBoss, makeBeatrice } from './state.js';
+import { G, save, caughtIds, makeMember, makeBoss, makeBeatrice, grantXP, activeFighter } from './state.js';
 import { scene, toon, clock, ANIM } from './scene.js';
-import { isNight } from './daynight.js';
+import { isNight, cur } from './daynight.js';
 import { box, addOutline, buildPerson, animPerson, makeLabel, makeSign, disposeModel } from './models.js';
 import { sfx } from './audio.js';
-import { showDialog, hudUpdate, player } from './ui.js';
+import { showDialog, hudUpdate, player, setPlayerCharacter } from './ui.js';
 import { startBattle } from './battle.js';
 
 const obstacles = []; // {x,z,r}
@@ -131,7 +131,8 @@ export let fotoLight;
   blockCircle(-24, 14, 2.2);
 }
 
-// Hüpfburg (deko)
+// Hüpfburg (Training: einmal pro Spieltag hüpfen = Applaus-Punkte)
+export const huepfPos = { x:38, z:-6 };
 {
   const base = box(6, 1.4, 6, '#f25c54'); base.position.set(38, .7, -6); scene.add(base);
   for (const [cx,cz] of [[-2.6,-2.6],[2.6,-2.6],[-2.6,2.6],[2.6,2.6]]){
@@ -144,7 +145,8 @@ export let fotoLight;
   blockCircle(38, -6, 4.4);
 }
 
-// Fundus-Schuppen (Kostüm-Ecke)
+// Fundus-Schuppen (Kostüm-Ecke: neues Outfit + Deckung ▲ für den nächsten Kampf)
+export const fundusPos = { x:50, z:30 };
 {
   const shed = box(5, 3, 4, '#6e5440'); shed.position.set(50, 1.5, 30); scene.add(shed);
   const roof = new THREE.Mesh(new THREE.ConeGeometry(4.2, 2, 4), toon('#4a3526'));
@@ -469,9 +471,14 @@ export function nearestInteract(){
   if (Math.hypot(px-thronPos.x, pz-thronPos.z) < 3.2) return 'thron';
   if (Math.hypot(px-hirnPos.x, pz-hirnPos.z) < 4.4) return 'hirn';
   if (Math.hypot(px-kaesePos.x, pz-kaesePos.z) < 3.2) return 'kaese';
+  if (Math.hypot(px-huepfPos.x, pz-huepfPos.z) < 5.6) return 'huepf';
+  if (Math.hypot(px-fundusPos.x, pz-fundusPos.z) < 4.8) return 'fundus';
+  if (Math.hypot(px, pz+37) < 3.4) return 'probe';   // Bühnenrand: Generalprobe
   if (Math.hypot(px-bossModel.position.x, pz-bossModel.position.z) < 3.2) return 'boss';
   return null;
 }
+// Einmal-pro-Spieltag-Aktionen (Session-Gedächtnis, vergleicht mit cur.dayCount)
+let bounceDay = -1, probeDay = -1;
 let ahnIdx = 0;
 export async function tryInteract(){
   const t = nearestInteract();
@@ -562,6 +569,62 @@ export async function tryInteract(){
       G.cheesePower = true;
       sfx.heal(); save();
       await showDialog('Emils Käse-Ecke', 'Du schneidest dir ein großzügiges Stück vom Käselaib ab. Kräftig. Würzig. Mutmachend. &#x1F9C0;\n&#x2728; KÄSE-POWER: Dein nächster Auftritt startet mit erhöhter Präsenz (▲)!\nIrgendwo seufzt Emil, als hätte er es gespürt.');
+    }
+  } else if (t === 'huepf'){
+    if (bounceDay === cur.dayCount){
+      sfx.click();
+      await showDialog('Hüpfburg', 'Für heute reicht es – das Ensemble ist noch außer Atem vom letzten Sprungtraining.\nMorgen wieder! (Ein Spieltag dauert etwa 5 Minuten.)');
+      return;
+    }
+    const rein = await showDialog('Hüpfburg',
+      'Die Hüpfburg wabbelt einladend. Offiziell ist sie „nur für die Theaterkinder".\nAber Sprungtraining ist Bühnentraining – sagt zumindest die Regie.\nReinhüpfen?', { yesNo:true });
+    if (rein){
+      bounceDay = cur.dayCount;
+      const act = activeFighter();
+      // Hüpf-Animation: Spieler springt dreimal (Loop pausiert im Dialog-Modus)
+      G.mode = 'dialog';
+      sfx.lvl();
+      await tween(1150, k => player.position.y = Math.abs(Math.sin(k*Math.PI*3))*1.9);
+      player.position.y = 0;
+      G.mode = 'world';
+      const amount = 8 + act.lvl*3;
+      const ups = grantXP(act, amount);
+      hudUpdate(); save();
+      await showDialog('Hüpfburg', `*boing* *boing* *BOING* &#x1F938;\n${act.name} trainiert Sprünge, Timing und den großen Bühnenauftritt: +${amount} Applaus-Punkte!`
+        + (ups ? `\n&#x2B50; Und steigt dabei auf Lv. ${act.lvl}!` : ''));
+    } else {
+      await showDialog('Hüpfburg', 'Verständlich. Die Flecken auf dem Dach sind übrigens KEIN Kunstblut. Sagt Viktor. Lächelnd.');
+    }
+  } else if (t === 'fundus'){
+    const neu = await showDialog('Fundus-Schuppen',
+      'Kostüme bis unter die Decke: Musketier-Mäntel, Mumienbinden, ein einzelner Riesen-Käse aus Pappmaché.\nEinmal neu einkleiden? (Neuer Look + frisch gerichtete Garderobe: Deckung ▲ im nächsten Kampf)', { yesNo:true });
+    if (neu){
+      G.costumeSeed = Math.floor(Math.random()*1e9) + 1;
+      G.costumePower = true;
+      setPlayerCharacter(G.playerId);
+      sfx.catchOk(); save();
+      await showDialog('Fundus-Schuppen', 'Vorhang auf für deinen neuen Look! &#x1F9F5;\nDie Garderobe sitzt bühnenfest: Dein nächster Auftritt startet mit erhöhter Deckung (▲).\nUmstyling jederzeit wieder möglich – der Fundus urteilt nicht.');
+    } else {
+      await showDialog('Fundus-Schuppen', 'Du hängst den Musketier-Mantel zurück.\nAus der hintersten Ecke flüstert es: „Feigling." Es war nur eine Schaufensterpuppe. Vermutlich.');
+    }
+  } else if (t === 'probe'){
+    if (probeDay === cur.dayCount){
+      sfx.click();
+      await showDialog('Bühne', 'Die Generalprobe für heute ist durch – Drusilla besteht auf Pausenzeiten.\n„Auch Geister haben einen Tarifvertrag."');
+      return;
+    }
+    const schwach = G.ensemble.filter(m => m.hp > 0).sort((a, b) => a.lvl - b.lvl)[0] || G.ensemble[0];
+    const ok = await showDialog('Bühne',
+      `Die Bretter, die die Welt bedeuten – und sie sind gerade frei.\nEine Generalprobe würde besonders ${schwach.name} (Lv. ${schwach.lvl}) weiterbringen.\nProbe ansetzen?`, { yesNo:true });
+    if (ok){
+      probeDay = cur.dayCount;
+      sfx.lvl();
+      const amount = 15 + schwach.lvl*5;
+      const ups = grantXP(schwach, amount);
+      hudUpdate(); save();
+      await showDialog('Generalprobe', `Scheinwerfer an! ${schwach.name} probt die große Szene – erst wackelig, dann immer sicherer.\nAus dem Dunkel des Zuschauerraums: einzelner, langsamer Applaus. (Es ist Jacques. „Hmmm.")\n+${amount} Applaus-Punkte!` + (ups ? `\n&#x2B50; ${schwach.name} steigt auf Lv. ${schwach.lvl}!` : ''));
+    } else {
+      await showDialog('Bühne', 'Die Bühne bleibt dunkel. Irgendwo klappert enttäuscht ein Scheinwerfer.');
     }
   } else if (t === 'boss'){
     await bossEncounter();

@@ -41,6 +41,14 @@ export function levelUp(m){
   m.hp = Math.min(m.maxHP, m.hp + Math.round(m.maxHP*.15));
 }
 export function xpNeed(m){ return m.lvl * 24; }
+// XP außerhalb des Kampfs vergeben (Hüpfburg-Training, Generalprobe) —
+// liefert die Anzahl der Level-Ups für den Dialog-Text
+export function grantXP(m, amount){
+  m.xp += amount;
+  let ups = 0;
+  while (m.xp >= xpNeed(m)){ m.xp -= xpNeed(m); levelUp(m); ups++; }
+  return ups;
+}
 export function makeBoss(){
   // Boss skaliert mit den Top-4 des Teams — viele schwache Member casten macht ihn nicht leichter
   const lvls = G.ensemble.map(m => m.lvl).sort((a, b) => b - a).slice(0, 4);
@@ -79,6 +87,8 @@ export const G = {
   bossDown: false,
   beatriceDown: false,    // Miniboss-Pflanze besiegt?
   cheesePower: false,     // Käselaib gegessen → nächster Kampf startet mit Präsenz ▲
+  costumeSeed: 0,         // Fundus-Outfit des Spielers (0 = Standard-Look)
+  costumePower: false,    // frisches Fundus-Kostüm → nächster Kampf startet mit Deckung ▲
   encounterCooldown: 0,
   healReady: true,
   fotoReady: true,
@@ -90,6 +100,8 @@ export function save(){
     bossDown: G.bossDown,
     beatriceDown: G.beatriceDown,
     cheesePower: G.cheesePower,
+    costumeSeed: G.costumeSeed,
+    costumePower: G.costumePower,
     playerId: G.playerId,
     time: G.timeOfDay,    // Welt-Uhr (optional, seit Tag-Nacht-Zyklus)
     ensemble: G.ensemble.map(m => ({ id:m.id, lvl:m.lvl, xp:m.xp, hp:m.hp, hpV:m.hpV, atkV:m.atkV })),
@@ -116,6 +128,8 @@ export function load(){
     G.bossDown = !!d.bossDown;
     G.beatriceDown = !!d.beatriceDown;
     G.cheesePower = !!d.cheesePower;
+    G.costumeSeed = d.costumeSeed || 0;
+    G.costumePower = !!d.costumePower;
     G.playerId = d.playerId ?? -2;
     // Welt-Uhr: optionales v2-Feld — Alt-Saves ohne `time` starten am frühen Abend
     G.timeOfDay = typeof d.time === 'number' ? ((d.time % 1) + 1) % 1 : TIME_START;

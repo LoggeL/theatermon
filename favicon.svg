@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Theatermon: Nachthimmel, Vorhang, Maske -->
+  <rect width="64" height="64" rx="12" fill="#141831"/>
+  <!-- Vorhang oben -->
+  <g>
+    <rect x="2"  y="2" width="10" height="14" rx="3" fill="#8e1f2f"/>
+    <rect x="12" y="2" width="10" height="12" rx="3" fill="#6f1825"/>
+    <rect x="22" y="2" width="10" height="14" rx="3" fill="#8e1f2f"/>
+    <rect x="32" y="2" width="10" height="12" rx="3" fill="#6f1825"/>
+    <rect x="42" y="2" width="10" height="14" rx="3" fill="#8e1f2f"/>
+    <rect x="52" y="2" width="10" height="12" rx="3" fill="#6f1825"/>
+  </g>
+  <!-- Sterne -->
+  <circle cx="10" cy="26" r="1.4" fill="#f1e8d8"/>
+  <circle cx="55" cy="22" r="1.2" fill="#f1e8d8"/>
+  <circle cx="48" cy="34" r="1"   fill="#e8b54a"/>
+  <!-- Maske -->
+  <text x="32" y="46" font-size="34" text-anchor="middle" dominant-baseline="middle">&#127917;</text>
+</svg>

@@ -24,9 +24,21 @@ export const battleCam = new THREE.PerspectiveCamera(50, innerWidth/innerHeight,
 battleCam.position.set(0, 4.6, 10.2);
 battleCam.lookAt(0, 1.6, 0);
 
+// Im Hochformat (Handy) rückt die Kampf-Kamera so weit zurück, dass beide
+// Kämpfer (x ±3.4 plus Rand) sicher im Bild sind — sonst stehen sie außerhalb.
+function fitBattleCam(){
+  battleCam.aspect = innerWidth/innerHeight;
+  const halfW = 5.0;   // halbe Bühnenbreite, die sichtbar sein muss
+  const need = halfW / (Math.tan(battleCam.fov * Math.PI/360) * battleCam.aspect);
+  battleCam.position.z = Math.max(10.2, need);
+  battleCam.updateProjectionMatrix();
+}
+fitBattleCam();
+
 addEventListener('resize', () => {
-  camera.aspect = battleCam.aspect = innerWidth/innerHeight;
-  camera.updateProjectionMatrix(); battleCam.updateProjectionMatrix();
+  camera.aspect = innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  fitBattleCam();
   renderer.setSize(innerWidth, innerHeight);
 });
 

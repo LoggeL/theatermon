@@ -3,8 +3,8 @@
    Credits, Touch-Steuerung, Spieler-Setup
 ================================================================ */
 import * as THREE from 'three';
-import { $, sleep } from './util.js';
-import { RAW, SIG, SHIRT, MOVES, TYPE_NAME, TYPE_BLURB } from './data.js';
+import { $, sleep, hashStr, mulberry, pick } from './util.js';
+import { RAW, SIG, SKIN, HAIR, SHIRT, MOVES, TYPE_NAME, TYPE_BLURB } from './data.js';
 import { G, save, load, maxCatch, activeFighter, makeMember, TIME_START } from './state.js';
 import { scene } from './scene.js';
 import { buildPerson, makeLabel, disposeModel } from './models.js';
@@ -23,9 +23,20 @@ export function playerName(){ return G.playerId === -2 ? 'Sebastian' : RAW[G.pla
 export function playerRole(){ return G.playerId === -2 ? 'Regie' : RAW[G.playerId][1]; }
 export function setPlayerCharacter(id){
   G.playerId = id;
-  const pal = id === -2
+  let pal = id === -2
     ? { skin:'#f1c9a5', hair:'#3a3a3a', shirt:'#222222', pants:'#1c1c28', beret:true }
     : makeMember(id, 1).palette;
+  // Fundus-Kostüm: deterministisch aus dem Seed gewürfelter Look (0 = Standard)
+  if (G.costumeSeed){
+    const rng = mulberry(hashStr(playerName() + 'fundus' + G.costumeSeed));
+    const alleShirts = [...SHIRT.S, ...SHIRT.T, ...SHIRT.K];
+    pal = { ...pal,
+      hair: pick(rng, HAIR),
+      shirt: pick(rng, alleShirts),
+      pants: pick(rng, ['#3b3b50','#4a3f35','#2f4858','#5d5d6e','#7a2f3a','#2f5d46']),
+      longHair: rng() < .45,
+    };
+  }
   const pos = player ? player.position.clone() : new THREE.Vector3(0, 0, 18);
   const rot = player ? player.rotation.y : 0;
   if (player){ disposeModel(player); scene.remove(player); }
@@ -96,9 +107,11 @@ export function hudUpdate(){
   $('hud-count').textContent = G.ensemble.length;
   $('hud-total').textContent = maxCatch();
   const act = activeFighter();
-  $('hud-fighter').innerHTML = G.ensemble.slice(0, 8).map(m =>
+  // Auf dem Handy ist der Platz knapp — kürzere Liste, Rest übers Ensemble-Menü
+  const lim = isTouch ? 4 : 8;
+  $('hud-fighter').innerHTML = G.ensemble.slice(0, lim).map(m =>
     `<div>${m === act ? '&#x2B50;' : '&#x1F3AD;'} ${m.name} <span class="chip ${m.type}">${TYPE_NAME[m.type]}</span> Lv. ${m.lvl} · ${m.hp}/${m.maxHP}</div>`
-  ).join('') + (G.ensemble.length > 8 ? `<div>… +${G.ensemble.length - 8} weitere (Esc)</div>` : '');
+  ).join('') + (G.ensemble.length > lim ? `<div>… +${G.ensemble.length - lim} weitere &#x1F3AD;</div>` : '');
 }
 
 /* ================================================================
@@ -218,7 +231,9 @@ function buildStarterCards(){
     div.onclick = async () => {
       sfx.catchOk();
       G.ensemble = []; G.bossDown = false; G.beatriceDown = false; G.cheesePower = false;   // neuer Run beginnt erst jetzt wirklich
+      G.costumeSeed = 0; G.costumePower = false;
       G.timeOfDay = TIME_START;   // neue Spiele starten am frühen Abend (Theater!)
+      setPlayerCharacter(G.playerId);   // Standard-Look (falls noch ein Fundus-Kostüm vom alten Stand an war)
       const m = makeMember(idx, 3);          // alle Starter beginnen bei 3 Prod. — faire Ausgangslage
       G.ensemble.push(m);
       $('starter').classList.add('hidden');

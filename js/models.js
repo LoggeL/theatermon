@@ -108,7 +108,14 @@ export function makeSign(text, w, h, fontPx, bg='#241d18', fg='#f1d9a0'){
   c.fillStyle = bg; c.fillRect(0,0,cv.width,cv.height);
   c.strokeStyle = fg; c.lineWidth = 6; c.strokeRect(8,8,cv.width-16,cv.height-16);
   c.fillStyle = fg; c.textAlign = 'center'; c.textBaseline = 'middle';
-  c.font = fontPx + "px 'Special Elite', monospace";
+  // Schrift automatisch verkleinern, bis der Text mit Rand ins Schild passt (clippt sonst)
+  const maxW = cv.width - 60;
+  let size = fontPx;
+  c.font = size + "px 'Special Elite', monospace";
+  while (size > 10 && c.measureText(text).width > maxW){
+    size -= 2;
+    c.font = size + "px 'Special Elite', monospace";
+  }
   c.fillText(text, cv.width/2, cv.height/2 + 4);
   const tex = new THREE.CanvasTexture(cv);
   return new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: tex }));
