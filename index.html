@@ -233,9 +233,10 @@ body.touch #hint{display:none;}
   <div class="curtain l"></div><div class="curtain r"></div>
   <h1>THEATERMON</h1>
   <div class="sub">~ Kolpingtheater Ramsen Edition ~</div>
-  <div class="blurb">Kurz vor der Premiere von <b style="color:var(--gold)">CREEPSHOW (2026)</b>:
+  <div class="blurb">Kurz vor der Premiere von <b style="color:var(--gold)">CREEPSHOW (2026)</b> –
+    dem Sommerstück um die schaurige Familie von Falkenstein und Graf Thaddäus&#8217; 110. Geburtstag:
     <b>Logge</b>, einst Teil des Teams, ist der Dunkelheit verfallen. Er hat die Plakate zerrissen, die Bühnenpläne gestohlen –
-    und schwört, dass der letzte Vorhang fällt. <b>Für immer.</b> Caste das Ensemble und halte ihn auf.</div>
+    und schwört, dass der letzte Vorhang fällt. <b>Für immer.</b> Caste das Ensemble und rette die Geburtstagsfeier.</div>
   <div class="actions">
     <button id="btn-continue" class="btn primary hidden">Weiterspielen</button>
     <button id="btn-new" class="btn">Bühne frei! (Neues Spiel)</button>
@@ -431,30 +432,30 @@ const MOVES = {
 // Signature-Move pro Rolle (Index = RAW-Index)
 const SIG = [
   { n:'Drusillas Giftblick',     t:'S', p:22, acc:.95 },
-  { n:'Lucys Lächeln',           t:'S', p:0,  acc:1, eff:'atkDown' },
+  { n:'Der Ohrenbohrer',         t:'S', p:0,  acc:1, eff:'atkDown' },
   { n:'Sumpf-Standpauke',        t:'S', p:24, acc:.9 },
   { n:'Sprung ins Rampenlicht',  t:'S', p:18, acc:1 },
   { n:'Karls Konter',            t:'S', p:20, acc:.95 },
   { n:'Brunos Bärenumarmung',    t:'S', p:26, acc:.85 },
-  { n:'Viktors Verwirrspiel',    t:'S', p:0,  acc:1, eff:'atkDown' },
+  { n:'Hirntauschinator',        t:'S', p:0,  acc:1, eff:'atkDown' },
   { n:'Mottenflattern',          t:'S', p:18, acc:1 },
   { n:'Doppelrolle',             t:'S', p:0,  acc:1, eff:'atkUp' },
   { n:'Perfekter Einsatz',       t:'S', p:18, acc:1 },
-  { n:'Fionas Funkeln',          t:'S', p:0,  acc:1, eff:'heal' },
+  { n:'Gespielte Freundlichkeit',t:'S', p:0,  acc:1, eff:'heal' },
   { n:'Spontaner Szenenklau',    t:'S', p:20, acc:.95 },
-  { n:'Adliges Dekret',          t:'S', p:26, acc:.9 },
+  { n:'Bronzene Büste',          t:'S', p:26, acc:.9 },
   { n:'Suzies Schlagfertigkeit', t:'S', p:20, acc:1 },
   { n:'Maximale Gestik',         t:'S', p:18, acc:1 },
   { n:'Noch maximalere Gestik',  t:'S', p:20, acc:.95 },
-  { n:'Felias Wirbelwind',       t:'S', p:18, acc:1 },
+  { n:'„Blinde Kuh"',            t:'S', p:18, acc:1 },
   { n:'Pharaonenfluch',          t:'S', p:24, acc:.9 },
-  { n:'Praktikanten-Eifer',      t:'S', p:0,  acc:1, eff:'atkUp' },
+  { n:'Käselaib-Stärkung',       t:'S', p:0,  acc:1, eff:'atkUp' },
   { n:'Eiserne Probe',           t:'S', p:0,  acc:1, eff:'defUp' },
   { n:'Stilles Servieren',       t:'S', p:0,  acc:1, eff:'heal' },
-  { n:'Mias Mut',                t:'S', p:0,  acc:1, eff:'atkUp' },
+  { n:'„En garde!"',             t:'S', p:0,  acc:1, eff:'atkUp' },
   { n:'Claras Klartext',         t:'S', p:20, acc:1 },
   { n:'Schniebli-Schnauze',      t:'S', p:22, acc:.95 },
-  { n:'Jacques’ Eleganz',        t:'S', p:0,  acc:1, eff:'defUp' },
+  { n:'Stoisches „Hmmm."',       t:'S', p:0,  acc:1, eff:'defUp' },
   { n:'Chorische Attacke',       t:'S', p:18, acc:1 },
   { n:'Düstere Diagnose',        t:'S', p:24, acc:.9 },
   { n:'Nähnadel-Sturm',          t:'K', p:22, acc:.95 },
@@ -475,6 +476,44 @@ const MOVE_POOL = {
   T:['blackout','nebel','feedback','soundcheck','followspot'],
   K:['maskenball','nadelstich','fundus','anprobe','kostuem'],
 };
+// Original-Zitate & Running Gags aus dem CREEPSHOW-Skript (skript.logge.top)
+// enc = Spruch zu Kampfbeginn · no = Casting abgelehnt · ok = Casting angenommen
+const ROLE_LINES = {
+  'Drusilla':            { enc:'Herzlich willkommen, verehrte Herr- und Frauschaften, zu einem Spektakel der anderen Art!', no:'Dieser Aufzug geziemt sich nicht für echte von Falkensteins.', ok:'Nun denn – ich führe euch durch das Anwesen. Es steckt voller Erinnerungen. Und dunkler Geheimnisse.' },
+  'Lucy':                { enc:'Was schaut ihr so blöd? Habt ihr keine Arbeit?', no:'Och weißt du, ich habe heute nichts mehr vor.', ok:'Nun gut, weil ich heute einen guten Tag habe, werde ich euch verschonen.' },
+  'Tante Heideltraut':   { enc:'Mensch Kinder, ich habe euch überall gesucht!', no:'Es ist Schlafenszeit. Kommt jetzt!', ok:'Zum Glück, dann ist ja alles gut. Ich habe mir schon Sorgen gemacht.' },
+  'Vetter Viktor':       { enc:'Bei Holla der Waldfee und ihren fünf heißen Schwestern!', no:'Seltsam… da ist wohl eine Lötstelle nicht richtig gesetzt.', ok:'Na schön, wenn ihr so fragt. Für die Wissenschaft!' },
+  'Motte':               { enc:'Voll spannend! Und das klappt dann einfach so?', no:'Ich muss mir gar nichts mehr sagen lassen. Es reicht!', ok:'Aber sowas von!' },
+  'Graf Thaddäus':       { enc:'Habt Dank, liebe Verwandte, Freunde, Bekannte – und bereits Verblichene.', no:'Du bist nicht Winston.', ok:'Nun denn. Aber vorher rückt noch jemand meine Büste zurecht – die Nase wirkt unvorteilhaft.' },
+  'Fiona':               { enc:'Sieh an, wen haben wir denn da?', no:'Keine Sorge, es wird bestimmt richtig witzig.', ok:'Gut. Aber Beatrice füttert ihr ab jetzt selbst.' },
+  'Felia':               { enc:'Wir spielen „Blinde Kuh". Eine Sondervariante – ich erkläre dir gleich die Regeln.', no:'Spiel einfach mit. Ich bin gleich fertig.', ok:'So, erledigt.' },
+  'Prinzessin Iset':     { enc:'Wo ist mein Thron, von dem ich auf euch einfaches Fußvolk herabsehen kann?', no:'Schweig, Diener! Oder ich werfe euch meinen Krokodilen zum Fraß vor.', ok:'Das will ich hoffen. Und nun: ein Bad in Eselsmilch!' },
+  'Praktikant Emil':     { enc:'Also eigentlich bin ich hier wegen meines Schnupperpraktikums…', no:'Für den Aufwand schuldest du mir einen ganzen Käselaib.', ok:'Aber klar doch! Das wird hoffentlich positiv im Arbeitszeugnis vermerkt.' },
+  'Mia':                 { enc:'Das ist eine Beleidigung – ich fordere dich zum Duell! En garde!', no:'Dafür musst du erst kämpfen wie ein Musketier!', ok:'Einer für alle und alle für einen!' },
+  'Clara':               { enc:'Du kannst lange warten, bis ich dir etwas verrate.', no:'Seltsam…', ok:'Na gut. Aber Mia kommt mit – wir gehören zusammen.' },
+  'Herr Schniebli':      { enc:'Du dreckiges Gör! Was fällt dir ein?', no:'Ihr fresst mir noch die Haare vom Kopf, ihr verfressenen Plagegeister!', ok:'Fürsorge wird bei uns im „Haus Sonnenschein" GANZ großgeschrieben.' },
+  'Jacques':             { enc:'Hmmm.', no:'Hmm,…', ok:'Mhm!' },
+  'Dr. Adrian Düsterwald': { enc:'Und jetzt halten Sie sich fest…', no:'Doch!', ok:'Die Erbschaftsangelegenheit wäre damit geregelt.' },
+  'Karl':                { enc:'Na, wer hat sich denn hierher verirrt?', no:'Erst, wenn Schniebli schläft.', ok:'Alles ist besser als Haus Sonnenschein!' },
+  'Bruno':               { enc:'Na sieh an, wer jetzt erst wach geworden ist.', no:'Dafür musst du früher aufstehen.', ok:'Na gut – aber nur mit Bärenumarmung.' },
+  'Suzie':               { enc:'Im Waisenhaus lernt man, sich durchzubeißen.', no:'Netter Versuch.', ok:'Endlich raus aus dem Schlafsaal!' },
+  'Diener':              { enc:'Verzeiht, ich habe gedacht…', no:'Bitte nicht der Ohrenbohrer!', ok:'Sehr wohl. Stilles Servieren ist meine Spezialität.' },
+};
+// Fallbacks für Ensemble (Bedienstete der Villa) & Crew
+const ENS_LINES = [
+  { enc:'Die Portraits im Flur haben mir wieder zugezwinkert.', no:'Erst, wenn die Portraits es erlauben.', ok:'Die Villa wird stolz auf uns sein!' },
+  { enc:'Psst… im Kerker der Villa spukt es. Also noch mehr als sonst.', no:'Ich muss noch Staub wischen. Überall Staub. Seit 1916.', ok:'Endlich Applaus statt Kettenrasseln!' },
+  { enc:'Ich probe gerade meinen schaurigsten Blick für den Geburtstag des Grafen.', no:'Mein großer Auftritt ist noch nicht reif.', ok:'Für den 110. des Grafen – ich bin dabei!' },
+];
+const CREW_LINES = [
+  { enc:'Blitz und Donner über der Villa Falkenstein? Reine Handarbeit.', no:'Erst, wenn der Soundcheck steht.', ok:'Na gut – aber die Spieluhr fahre ICH.' },
+  { enc:'Ohne uns bleibt die Gruft dunkel.', no:'Der Bühnennebel ist noch nicht dicht genug.', ok:'Licht aus, Spot an – ich bin dabei!' },
+];
+function roleLines(m){
+  if (ROLE_LINES[m.role]) return ROLE_LINES[m.role];
+  const pool = m.type === 'S' ? ENS_LINES : CREW_LINES;
+  return pool[hashStr(m.name + m.role) % pool.length];
+}
 // [name, rolle, typ, produktionen] — kompletter Cast & Crew (ohne Logge=Boss, Sebastian wählbar)
 // Produktionen = echte Daten von kolpingtheater-ramsen.de/team/<Name> (Crew: Jahre seit Beitritt)
 const RAW = [
@@ -897,6 +936,39 @@ let fotoLight;
   blockCircle(50, 30, 3.6);
 }
 
+// Viktors Sarkophag-Lieferung (CREEPSHOW-Requisite — es klopft von innen)
+const sarkPos = { x:-42, z:-4 };
+{
+  const base = box(1.7, 1.1, 3.6, '#c8a23c'); base.position.set(sarkPos.x, .55, sarkPos.z);
+  base.rotation.y = .5; addOutline(base); scene.add(base);
+  const lid = box(1.6, .28, 3.4, '#e0bd55'); lid.position.set(sarkPos.x + .45, 1.3, sarkPos.z - .25);
+  lid.rotation.set(.08, .68, .14); addOutline(lid); scene.add(lid);
+  const mask = box(.8, .55, .15, '#2e6f8e', false); mask.position.set(sarkPos.x + .47, 1.48, sarkPos.z - .23);
+  mask.rotation.set(.08, .68, .14); scene.add(mask);
+  blockCircle(sarkPos.x, sarkPos.z, 2.2);
+}
+
+// Beatrice, die Kannibalia Fressaria (Felias & Fionas Liebling)
+const plantPos = { x:-4, z:42 };
+{
+  const pot = new THREE.Mesh(new THREE.CylinderGeometry(1, .75, 1.1, 12), toon('#8a4a2b'));
+  pot.position.set(plantPos.x, .55, plantPos.z); addOutline(pot); scene.add(pot);
+  const stem = new THREE.Mesh(new THREE.CylinderGeometry(.18, .34, 2.4, 8), toon('#2f7a33'));
+  stem.position.set(plantPos.x, 2.1, plantPos.z); stem.rotation.z = .14; scene.add(stem);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(1, 14, 12), toon('#3fa04a'));
+  head.position.set(plantPos.x - .35, 3.4, plantPos.z); head.scale.set(1, .85, 1.15);
+  addOutline(head); scene.add(head);
+  const maw = new THREE.Mesh(new THREE.SphereGeometry(.52, 10, 8), toon('#a8232f'));
+  maw.position.set(plantPos.x - .35, 3.25, plantPos.z + .82); scene.add(maw);
+  for (const s of [-1, 1]){
+    const leaf = new THREE.Mesh(new THREE.ConeGeometry(.45, 1.5, 6), toon('#2f7a33'));
+    leaf.position.set(plantPos.x + s*.9, 1.4, plantPos.z); leaf.rotation.z = -s*1.1;
+    scene.add(leaf);
+  }
+  ANIM.beatrice = head;
+  blockCircle(plantPos.x, plantPos.z, 1.9);
+}
+
 // Bäume am Rand
 {
   const rng = mulberry(99);
@@ -1191,6 +1263,8 @@ function drawMinimap(){
   c.fillStyle = '#0e0f16'; c.fillRect(px(-26), px(12), 5, 5);     // Fotobox
   c.fillStyle = '#6e5440'; c.fillRect(px(48), px(28), 5, 5);      // Fundus
   c.fillStyle = '#f25c54'; c.fillRect(px(35), px(-9), 6, 6);      // Hüpfburg
+  c.fillStyle = '#c8a23c'; c.fillRect(px(-44), px(-6), 5, 5);     // Sarkophag
+  c.fillStyle = '#3fa04a'; c.fillRect(px(-6), px(40), 5, 5);      // Beatrice
   // Bäume
   c.fillStyle = '#152a14';
   for (const [tx, tz] of ANIM.treeDots) c.fillRect(px(tx) - 1.5, px(tz) - 1.5, 3, 3);
@@ -1220,6 +1294,8 @@ function nearestInteract(){
   const px = player.position.x, pz = player.position.z;
   if (Math.hypot(px-kaffeePos.x, pz-kaffeePos.z) < 4.2) return 'kaffee';
   if (Math.hypot(px-fotoPos.x, pz-fotoPos.z) < 3.4) return 'foto';
+  if (Math.hypot(px-sarkPos.x, pz-sarkPos.z) < 3.4) return 'sark';
+  if (Math.hypot(px-plantPos.x, pz-plantPos.z) < 3.2) return 'plant';
   if (Math.hypot(px-bossModel.position.x, pz-bossModel.position.z) < 3.2) return 'boss';
   return null;
 }
@@ -1237,6 +1313,21 @@ async function tryInteract(){
     setTimeout(() => fotoLight.intensity = 0, 130);
     sfx.click();
     await showDialog('Fotobox', '*KLICK!* &#x1F4F8;\nAuf dem Display flackern alte Ensemblefotos – jedes Gesicht fein säuberlich durchgestrichen.\nNur eines nicht: deins. Noch nicht.');
+  } else if (t === 'sark'){
+    sfx.click();
+    await showDialog('Sarkophag', '*Kratz… kratz…* &#x26B0;\n„Lieferung für Viktor von Falkenstein. Vorsicht: Inhalt über 3000 Jahre alt."\nVon innen klopft es ungeduldig: „Wo bleibt mein Bad in Eselsmilch?! Schweig, Diener, und mach schneller!"');
+  } else if (t === 'plant'){
+    const mutig = await showDialog('Beatrice (Kannibalia Fressaria)',
+      'Die fleischfressende Pflanze von Felia & Fiona beäugt dich und leckt sich die Blätter.\nNormalerweise frisst sie kleine Nagetiere – aber dafür wirkt sie inzwischen DEUTLICH zu groß.\nHand zum Streicheln ausstrecken?', { yesNo:true });
+    if (mutig){
+      sfx.encounter();
+      const hz = ANIM.beatrice.position.z;
+      await tween(240, k => ANIM.beatrice.position.z = hz + Math.sin(k*Math.PI)*1.2);
+      ANIM.beatrice.position.z = hz;
+      await showDialog('Beatrice', '*SCHNAPP!* &#x1FAB4;\nHaarscharf vorbei! Beatrice schaut unschuldig in den Nachthimmel und rülpst einen Hosenknopf aus.\nFiona würde sagen: „Keine Sorge, es wird bestimmt richtig witzig."');
+    } else {
+      await showDialog('Beatrice', 'Sehr vernünftig.\nFelia würde sagen: „Spiel einfach mit – ich bin gleich fertig."\nGenau davor solltest du Angst haben.');
+    }
   } else if (t === 'boss'){
     await bossEncounter();
   }
@@ -1390,7 +1481,7 @@ async function startBattle(wanderRef, bossInstance){
   });
   blog(B.enemy.boss
     ? 'Logge tritt aus dem Dunkel, die Augen glühen rot. „HEUTE fällt der letzte Vorhang."'
-    : `${B.enemy.name} (${B.enemy.role}) will erst überzeugt werden!`);
+    : `${B.enemy.name} (${B.enemy.role}): „${roleLines(B.enemy).enc}"`);
   setMenuEnabled(true);
   $('act-cast').disabled = !!B.enemy.boss;
   // Einmaliges Tutorial beim ersten Kampf
@@ -1741,7 +1832,7 @@ $('act-cast').onclick = async () => {
     sfx.catchOk();
     burst(3.4, 2.5, 0, '#ffd97a');
     floatText(B.enemyModel, 'GECASTET!', '#ffd97a');
-    blog(`${B.enemy.name} unterschreibt! Willkommen im Ensemble!`);
+    blog(`${B.enemy.name}: „${roleLines(B.enemy).ok}" – Willkommen im Ensemble!`);
     B.enemy.hp = Math.max(1, B.enemy.hp);
     G.ensemble.push(B.enemy);
     if (B.wanderRef) removeWanderer(B.wanderRef, 0);
@@ -1749,13 +1840,13 @@ $('act-cast').onclick = async () => {
     await gainXP(10 + B.enemy.lvl*3);
     await endBattle();
     if (G.ensemble.length === maxCatch()){
-      await showDialog('&#x1F3C6;', `ALLE ${maxCatch()} Mitglieder im Ensemble – das komplette Kolpingtheater!\nJetzt kann Logge einpacken.`);
+      await showDialog('&#x1F3C6;', `ALLE ${maxCatch()} Mitglieder im Ensemble – das komplette Kolpingtheater!\nJetzt kann Logge einpacken – und Graf Thaddäus seinen 110. feiern.`);
     }
   } else {
     sfx.catchNo();
     await tween(250, k => B.enemyModel.scale.setScalar(.225 + k*1.275));
     B.enemyModel.rotation.z = 0;
-    blog(`${B.enemy.name}: „Hmm, ich weiß nicht… überzeug mich erst!"`);
+    blog(`${B.enemy.name}: „${roleLines(B.enemy).no}"`);
     await sleep(900);
     await enemyTurn();
   }
@@ -1843,7 +1934,7 @@ async function showCredits(){
     `<div class="nm">${n} <span>· ${r}${i === G.playerId ? ' · das bist du &#x2764;' : ''}</span></div>`));
   sc.innerHTML = `
     <h1>CREEPSHOW</h1>
-    <h2>Kolpingtheater Ramsen · 2026 · Die Premiere ist gerettet!</h2>
+    <h2>Kolpingtheater Ramsen · CREEPSHOW 2026 · Die Premiere ist gerettet!</h2>
     <div class="grp">— REGIE —</div>
     <div class="nm">Sebastian <span>· Butler Wilson${G.playerId === -2 ? ' · das bist du &#x2764;' : ''}</span></div>
     <div class="grp">— SCHAUSPIEL —</div>${groups.S.join('')}
@@ -1917,10 +2008,11 @@ function buildStarterCards(){
       $('starter').classList.add('hidden');
       await enterWorld();
       await showDialog(`${playerName()} (du)`,
-        `Logge ist der Dunkelheit verfallen: zerrissene Plakate, gestohlene Bühnenpläne – und er schwört, dass der letzte Vorhang fällt.\n` +
+        `CREEPSHOW steht kurz vor der Premiere: Die schaurige Familie von Falkenstein lädt zu Graf Thaddäus' 110. Geburtstag.\n` +
+        `Doch Logge ist der Dunkelheit verfallen: zerrissene Plakate, gestohlene Bühnenpläne – er schwört, dass der letzte Vorhang fällt.\n` +
         `${m.name} macht den Anfang. Lauf über die Wiese und überzeuge die anderen (einfach anlaufen). ` +
         `Ab 6 Mitgliedern stellst du Logge vor der Bühne.\n` +
-        `Kaffee & Kuchen heilen. Und meide die Fotobox nach Einbruch der Nacht.`);
+        `Kaffee & Kuchen heilen. Meide die Fotobox nach Einbruch der Nacht – und steck KEINE Hand in die fleischfressende Pflanze.`);
     };
     wrap.appendChild(div);
   }
@@ -2023,6 +2115,7 @@ function loop(){
     ANIM.cones.forEach((c,i) => c.rotation.z = c.userData.base + Math.sin(t*.5 + i*Math.PI)*.2);
     ANIM.spotTargets.forEach((tg,i) => tg.position.x = Math.sin(t*.5 + i*Math.PI)*5.5);
     ANIM.dome.scale.y = .55 + Math.sin(t*2.6)*.05;
+    ANIM.beatrice.rotation.z = Math.sin(t*1.3)*.12;   // Beatrice wiegt sich lauernd
     ANIM.stars.size = 1.1 + Math.sin(t*1.8)*.3;
     if (t > nextFlash){
       nextFlash = t + 5 + Math.random()*7;
@@ -2039,13 +2132,15 @@ function loop(){
     const ni = nearestInteract();
     const hint = ni === 'kaffee' ? 'E – Kaffee & Kuchen (heilt alle)'
                : ni === 'foto' ? 'E – Fotobox &#x1F4F8;'
+               : ni === 'sark' ? 'E – Sarkophag (es klopft von innen)'
+               : ni === 'plant' ? 'E – Beatrice begutachten &#x1FAB4;'
                : ni === 'boss' ? 'E – Logge entgegentreten' : '';
     if (hint !== lastInteractHint){
       lastInteractHint = hint;
       $('interact').innerHTML = hint;
       $('interact').classList.toggle('hidden', !hint);
       if (document.body.classList.contains('touch')){
-        $('touch-action').textContent = ni === 'kaffee' ? '☕' : ni === 'foto' ? '📷' : ni === 'boss' ? '⚔️' : '👀';
+        $('touch-action').textContent = ni === 'kaffee' ? '☕' : ni === 'foto' ? '📷' : ni === 'sark' ? '⚰️' : ni === 'plant' ? '🪴' : ni === 'boss' ? '⚔️' : '👀';
         $('touch-action').classList.toggle('ready', !!ni);
       }
     }
