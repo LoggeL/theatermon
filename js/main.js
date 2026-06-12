@@ -10,7 +10,7 @@ import { collides, updateWanderers, drawMinimap, nearestInteract, tryInteract,
          bossModel, evilGlow, krokoLunge, fotoLight, teichPos } from './world.js';
 import { B, dust, fx } from './battle.js';
 import * as daynight from './daynight.js';
-import { player, touchVec, openEnsemble, closeEnsemble, setPlayerCharacter } from './ui.js';
+import { player, touchVec, openEnsemble, closeEnsemble, setPlayerCharacter, toggleBike } from './ui.js';
 
 /* ================================================================
    player input (Tastatur + Kamera-Orbit)
@@ -23,6 +23,7 @@ addEventListener('keydown', e => {
     else if (G.mode === 'menu' && !$('ensemble').classList.contains('hidden')) closeEnsemble();
   }
   if (e.key.toLowerCase() === 'e' && G.mode === 'world') tryInteract();
+  if (e.key.toLowerCase() === 'f' && G.mode === 'world') toggleBike();   // Technik-Rad auf-/absteigen
   // Dialoge per Enter/E/Leertaste bestätigen
   if (G.mode === 'dialog' && (e.key === 'Enter' || e.key === ' ' || e.key.toLowerCase() === 'e')){
     e.preventDefault();
@@ -130,19 +131,31 @@ function loop(){
     daynight.update(dt);   // Welt-Uhr tickt nur hier — Kämpfe/Dialoge frieren die Tageszeit ein
     G.encounterCooldown = Math.max(0, G.encounterCooldown - dt);
     const d = moveDir();
+    const riding = G.hasBike && G.bikeOn;
     if (d.moving){
       // Eingabe relativ zur Kamera drehen
       const cy = Math.cos(camYaw), sy = Math.sin(camYaw);
       const wx = d.x*cy + d.z*sy, wz = -d.x*sy + d.z*cy;
-      const speed = 6.5 * dt * (d.mag || 1);
+      const speed = (riding ? 11.5 : 6.5) * dt * (d.mag || 1);
       const nx = player.position.x + wx * speed;
       const nz = player.position.z + wz * speed;
       if (!collides(nx, player.position.z)) player.position.x = nx;
       if (!collides(player.position.x, nz)) player.position.z = nz;
       player.rotation.y = Math.atan2(wx, wz);
     }
-    animPerson(player, d.moving, dt);
-    player.position.y = d.moving ? Math.abs(Math.sin(player.userData.anim.t)) * .07 : 0;
+    animPerson(player, d.moving && !riding, dt);
+    if (riding){
+      // Pedalieren statt Laufen: Beine kreisen, Hände an den Lenker, Räder drehen
+      const a = player.userData.anim, bike = player.userData.bikeModel;
+      if (d.moving) a.t += dt*9;
+      a.legL.rotation.x = .65 + (d.moving ? Math.sin(a.t)*.45 : 0);
+      a.legR.rotation.x = .65 - (d.moving ? Math.sin(a.t)*.45 : 0);
+      a.armL.rotation.x = a.armR.rotation.x = .5;
+      if (bike && d.moving) for (const w of bike.userData.wheels) w.rotation.z -= dt*10;
+      player.position.y = .12;   // sitzt leicht erhöht auf dem Sattel
+    } else {
+      player.position.y = d.moving ? Math.abs(Math.sin(player.userData.anim.t)) * .07 : 0;
+    }
     updateWanderers(dt);
     // Szenerie lebt: Vorhang wogt, Bäume wiegen, Spots schwenken, Hüpfburg wippt, Sterne funkeln
     for (const s of ANIM.curtains) s.rotation.y = Math.sin(t*1.1 + s.userData.i*.7)*.05;
@@ -151,12 +164,13 @@ function loop(){
     ANIM.spotTargets.forEach((tg,i) => tg.position.x = Math.sin(t*.5 + i*Math.PI)*5.5);
     ANIM.dome.scale.y = .55 + Math.sin(t*2.6)*.05;
     ANIM.beatrice.rotation.z = Math.sin(t*(G.beatriceDown ? .6 : 1.3))*.12;   // Beatrice wiegt sich (lauernd bzw. friedlich)
-    // Krokodil zieht gemütlich Runden in der Eselsmilch
+    // Krokodil zieht Runden in der Eselsmilch — gefüttert schwimmt es deutlich fröhlicher
     if (!krokoLunge){
-      ANIM.kroko.position.x = teichPos.x + Math.cos(t*.45)*1.7;
-      ANIM.kroko.position.z = teichPos.z + Math.sin(t*.45)*1.7;
-      ANIM.kroko.position.y = .5 + Math.sin(t*1.8)*.06;
-      ANIM.kroko.rotation.y = -t*.45;
+      const kSpd = G.krokoFed ? .8 : .45;
+      ANIM.kroko.position.x = teichPos.x + Math.cos(t*kSpd)*1.7;
+      ANIM.kroko.position.z = teichPos.z + Math.sin(t*kSpd)*1.7;
+      ANIM.kroko.position.y = .5 + Math.sin(t*1.8)*(G.krokoFed ? .12 : .06);
+      ANIM.kroko.rotation.y = -t*kSpd;
     }
     ANIM.hirnLight.intensity = 7 + Math.sin(t*5)*4 + (Math.sin(t*.9) > .97 ? 26 : 0);
     ANIM.ahnenAugen.forEach((e, i) => e.scale.y = Math.sin(t*2.2 + i*2) > .96 ? .1 : 1);  // die Ahnen blinzeln
@@ -184,10 +198,11 @@ function loop(){
                : ni === 'sark' ? 'E – Sarkophag (es klopft von innen)'
                : ni === 'plant' ? (G.beatriceDown ? 'E – Beatrice besuchen &#x1FAB4;' : 'E – Beatrice herausfordern &#x1FAB4; (Miniboss!)')
                : ni === 'galerie' ? 'E – Ahnengalerie belauschen &#x1F5BC;'
-               : ni === 'teich' ? 'E – Eselsmilch-Bad (es schwimmt was drin)'
-               : ni === 'thron' ? 'E – Auf Isets Thron setzen &#x1F451;'
+               : ni === 'teich' ? (G.cheeseCarry ? 'E – Romadur fürs Krokodil &#x1F40A;&#x1F9C0;' : G.krokoFed ? 'E – Krokodil-Freund besuchen &#x1F40A;' : 'E – Eselsmilch-Bad (es schwimmt was drin)')
+               : ni === 'thron' ? (daynight.isNight() ? 'E – Isets Thron… da flimmert was &#x1F451;' : 'E – Auf Isets Thron setzen &#x1F451;')
                : ni === 'hirn' ? 'E – Hirntauschinator 3000 &#x1F9E0;'
-               : ni === 'kaese' ? 'E – Emils Käselaib &#x1F9C0;'
+               : ni === 'kaese' ? 'E – Emils Käse-Ecke &#x1F9C0;'
+               : ni === 'rad' ? 'E – Ein verstecktes Fahrrad?! &#x1F6B2;'
                : ni === 'huepf' ? 'E – Hüpfburg: Sprungtraining &#x1F938;'
                : ni === 'fundus' ? 'E – Fundus: neu einkleiden &#x1F9F5;'
                : ni === 'probe' ? 'E – Generalprobe auf der Bühne &#x1F3AD;'
@@ -197,7 +212,7 @@ function loop(){
       $('interact').innerHTML = hint;
       $('interact').classList.toggle('hidden', !hint);
       if (document.body.classList.contains('touch')){
-        $('touch-action').textContent = ni === 'kaffee' ? '☕' : ni === 'foto' ? '📷' : ni === 'sark' ? '⚰️' : ni === 'plant' ? '🪴' : ni === 'galerie' ? '🖼️' : ni === 'teich' ? '🐊' : ni === 'thron' ? '👑' : ni === 'hirn' ? '🧠' : ni === 'kaese' ? '🧀' : ni === 'huepf' ? '🤸' : ni === 'fundus' ? '🧵' : ni === 'probe' ? '🎭' : ni === 'boss' ? '⚔️' : '👀';
+        $('touch-action').textContent = ni === 'kaffee' ? '☕' : ni === 'foto' ? '📷' : ni === 'sark' ? '⚰️' : ni === 'plant' ? '🪴' : ni === 'galerie' ? '🖼️' : ni === 'teich' ? '🐊' : ni === 'thron' ? '👑' : ni === 'hirn' ? '🧠' : ni === 'kaese' ? '🧀' : ni === 'rad' ? '🚲' : ni === 'huepf' ? '🤸' : ni === 'fundus' ? '🧵' : ni === 'probe' ? '🎭' : ni === 'boss' ? '⚔️' : '👀';
         $('touch-action').classList.toggle('ready', !!ni);
       }
     }

@@ -7,9 +7,9 @@ import { RAW, TOTAL, TYPE_COL, AHNEN_QUOTES } from './data.js';
 import { G, save, caughtIds, makeMember, makeBoss, makeBeatrice, grantXP, activeFighter } from './state.js';
 import { scene, toon, clock, ANIM } from './scene.js';
 import { isNight, cur } from './daynight.js';
-import { box, addOutline, buildPerson, animPerson, makeLabel, makeSign, disposeModel } from './models.js';
+import { box, addOutline, buildPerson, buildBike, animPerson, makeLabel, makeSign, disposeModel } from './models.js';
 import { sfx } from './audio.js';
-import { showDialog, hudUpdate, player, setPlayerCharacter } from './ui.js';
+import { showDialog, hudUpdate, player, setPlayerCharacter, updateBike } from './ui.js';
 import { startBattle } from './battle.js';
 
 const obstacles = []; // {x,z,r}
@@ -283,6 +283,14 @@ export const kaesePos = { x:8, z:26 };
   blockCircle(kaesePos.x, kaesePos.z, 1.9);
 }
 
+// Logges Technik-Rad — hinter der Bühne versteckt (kein Minimap-Punkt: wer es findet, fährt)
+export const radPos = { x:-10, z:-54 };
+const radProp = buildBike();
+radProp.position.set(radPos.x, 0, radPos.z);
+radProp.rotation.y = 1.1;
+radProp.rotation.z = .14;   // lehnt lässig an der Bühnenrückwand
+scene.add(radProp);
+
 // Bäume am Rand
 {
   const rng = mulberry(99);
@@ -358,6 +366,7 @@ export function removeWanderer(w, benchMs){
 }
 let nextSpawnTry = 0;
 export function updateWanderers(dt){
+  radProp.visible = !G.hasBike;   // beschlagnahmt = weg (hängt dann am Spieler)
   // Spawn-Versuche drosseln statt jede Frame Sets/Arrays zu allozieren
   if (performance.now() > nextSpawnTry){
     nextSpawnTry = performance.now() + 500;
@@ -473,13 +482,15 @@ export function nearestInteract(){
   if (Math.hypot(px-kaesePos.x, pz-kaesePos.z) < 3.2) return 'kaese';
   if (Math.hypot(px-huepfPos.x, pz-huepfPos.z) < 5.6) return 'huepf';
   if (Math.hypot(px-fundusPos.x, pz-fundusPos.z) < 4.8) return 'fundus';
+  if (!G.hasBike && Math.hypot(px-radPos.x, pz-radPos.z) < 3.2) return 'rad';
   if (Math.hypot(px, pz+37) < 3.4) return 'probe';   // Bühnenrand: Generalprobe
   if (Math.hypot(px-bossModel.position.x, pz-bossModel.position.z) < 3.2) return 'boss';
   return null;
 }
 // Einmal-pro-Spieltag-Aktionen (Session-Gedächtnis, vergleicht mit cur.dayCount)
-let bounceDay = -1, probeDay = -1;
+let bounceDay = -1, probeDay = -1, kaeseDay = -1, krokoDay = -1, thronDay = -1;
 let ahnIdx = 0;
+const KAESE_SORTEN = ['Bergkäse', 'Backcamembert', 'Obatzter', 'Limburger', 'Räucherkäse', '„Premieren-Brie"'];
 export async function tryInteract(){
   const t = nearestInteract();
   if (t === 'kaffee'){
@@ -499,7 +510,9 @@ export async function tryInteract(){
       : '*KLICK!* &#x1F4F8;\nDas Display zeigt ein frisch geknipstes Bild: du, strahlend vor der Bühne – dahinter winkt das halbe Ensemble.\nBei Tageslicht ist die Box einfach nur eine Fotobox. Wirklich. Ganz bestimmt.');
   } else if (t === 'sark'){
     sfx.click();
-    await showDialog('Sarkophag', '*Kratz… kratz…* &#x26B0;\n„Lieferung für Viktor von Falkenstein. Vorsicht: Inhalt über 3000 Jahre alt."\nVon innen klopft es ungeduldig: „Wo bleibt mein Bad in Eselsmilch?! Schweig, Diener, und mach schneller!"');
+    await showDialog('Sarkophag', G.cheeseCarry
+      ? '*schnüff* *schnüff* &#x26B0;\nAus dem Sarkophag, plötzlich hellwach: „Ist das… ROMADUR?! DIENER! Her damit! …Wie, der ist für die KROKODILE?"\nKurze Pause. „Oh. Das ist… tatsächlich akzeptabel. Weitergehen."'
+      : '*Kratz… kratz…* &#x26B0;\n„Lieferung für Viktor von Falkenstein. Vorsicht: Inhalt über 3000 Jahre alt."\nVon innen klopft es ungeduldig: „Wo bleibt mein Bad in Eselsmilch?! Schweig, Diener, und mach schneller!"');
   } else if (t === 'plant'){
     if (G.beatriceDown){
       await showDialog('Beatrice', 'Beatrice döst satt und friedlich vor sich hin und gurrt fast wie eine Taube. &#x1FAB4;\nSeit eurem Kampf frisst sie nur noch, was Felia & Fiona ihr offiziell servieren. Meistens.');
@@ -520,6 +533,50 @@ export async function tryInteract(){
     sfx.click();
     await showDialog('Ahnengalerie', `Eines der Portraits räuspert sich und schaut betont unauffällig geradeaus.\n&#x1F5BC; ${AHNEN_QUOTES[ahnIdx++ % AHNEN_QUOTES.length]}`);
   } else if (t === 'teich'){
+    // Käse-Ecken-Quest: Romadur fürs Krokodil dabei?
+    if (G.cheeseCarry){
+      const wurf = await showDialog('Eselsmilch-Bad',
+        'Das Krokodil hebt witternd die Schnauze aus der Milch – es hat den Romadur längst gerochen.\nKäse werfen? (Emil sagte: werfen. NICHT reichen.)', { yesNo:true });
+      if (wurf){
+        sfx.catchOk();
+        krokoLunge = true;
+        const kx = ANIM.kroko.position.x, kz = ANIM.kroko.position.z;
+        ANIM.kroko.rotation.y = Math.atan2(player.position.x - kx, player.position.z - kz);
+        await tween(360, k => ANIM.kroko.position.y = .5 + Math.sin(k*Math.PI)*1.1);
+        ANIM.kroko.position.set(kx, .5, kz);
+        krokoLunge = false;
+        G.cheeseCarry = false; G.krokoFed = true;
+        const act = activeFighter();
+        const amount = 10 + act.lvl*3;
+        const ups = grantXP(act, amount);
+        hudUpdate(); save();
+        await showDialog('Krokodil', `*HAPP!* …*schmatz* &#x1F40A;&#x1F9C0;\nDas Krokodil verputzt den Romadur in der Luft, dreht eine begeisterte Ehrenrunde und stupst zum Dank deine Hand an.\nDu hast einen Freund fürs Leben. Einen feuchten, käseliebenden Freund.\n+${amount} Applaus-Punkte für ${act.name} – mutiges Tier-Casting!` + (ups ? `\n&#x2B50; ${act.name} steigt auf Lv. ${act.lvl}!` : ''));
+      } else {
+        await showDialog('Eselsmilch-Bad', 'Du behältst den Romadur. Das Krokodil folgt dem Päckchen mit einem langen, sehr persönlichen Blick.');
+      }
+      return;
+    }
+    // gefüttert: das Krokodil ist jetzt ein Freund — tägliche Trainingsrunde statt Schnapp-Falle
+    if (G.krokoFed){
+      if (krokoDay === cur.dayCount){
+        sfx.click();
+        await showDialog('Eselsmilch-Bad', 'Das Krokodil döst satt auf dem Rücken und paddelt im Schlaf.\nAus dem Sarkophag: „Meine Babys haben KÄSEATEM. WER war das?!"');
+        return;
+      }
+      const plansch = await showDialog('Eselsmilch-Bad',
+        'Das Krokodil schwimmt sofort herbei und legt erwartungsvoll den Kopf auf den Beckenrand.\nKurze Trainingsrunde mit dem neuen Ensemble-Maskottchen? (1× pro Spieltag)', { yesNo:true });
+      if (plansch){
+        krokoDay = cur.dayCount;
+        const act = activeFighter();
+        const amount = 8 + act.lvl*2;
+        const ups = grantXP(act, amount);
+        sfx.heal(); hudUpdate(); save();
+        await showDialog('Krokodil', `Das Krokodil führt stolz seine beste Todesrolle vor – ${act.name} übt Timing und Bühnenpräsenz gleich mit. &#x1F40A;\n+${amount} Applaus-Punkte!` + (ups ? `\n&#x2B50; ${act.name} steigt auf Lv. ${act.lvl}!` : ''));
+      } else {
+        await showDialog('Eselsmilch-Bad', 'Das Krokodil sinkt enttäuscht zurück in die Milch und übt theatralisches Seufzen.\nEs lernt schnell. Zu schnell.');
+      }
+      return;
+    }
     const zeh = await showDialog('Eselsmilch-Bad',
       'Ein Becken voll warmer Eselsmilch – vorbereitet für Prinzessin Isets königliches Bad.\nIn der Milch zieht etwas Grünes gemütlich seine Runden…\nZeh reinhalten?', { yesNo:true });
     if (zeh){
@@ -537,6 +594,22 @@ export async function tryInteract(){
       await showDialog('Eselsmilch-Bad', 'Gute Entscheidung. Auf dem Schild steht zwar nur „nicht trinken" –\naber „nicht anfassen" hat Iset vermutlich für selbstverständlich gehalten.');
     }
   } else if (t === 'thron'){
+    // nachts erscheint Isets Geist und gibt Haltungsunterricht (1× pro Spieltag)
+    if (isNight() && thronDay !== cur.dayCount){
+      const setz = await showDialog('Isets Thron',
+        'Im Mondlicht flimmert die Luft über dem Thron. Eine königliche Stimme:\n„Setz dich, Sterblicher. Ich zeige dir, wie man einen Saal BEHERRSCHT."\nHaltungsunterricht bei einer 3000 Jahre alten Prinzessin? (1× pro Nacht)', { yesNo:true });
+      if (setz){
+        thronDay = cur.dayCount;
+        const act = activeFighter();
+        const amount = 10 + act.lvl*3;
+        const ups = grantXP(act, amount);
+        sfx.lvl(); hudUpdate(); save();
+        await showDialog('Isets Geisterstunde', `Iset korrigiert Kinnhöhe, Blick und Sitzhaltung von ${act.name}: „Herabsehen! Würdevoller! BESSER."\n+${amount} Applaus-Punkte!` + (ups ? `\n&#x2B50; ${act.name} steigt auf Lv. ${act.lvl}!` : '') + '\n„Und jetzt RUNTER von meinem Thron."');
+      } else {
+        await showDialog('Isets Thron', '„WIE BITTE? Man lehnt eine königliche Einladung NICHT ab!"\nDie Luft wird schlagartig kälter. Du gehst lieber ein paar Schritte.');
+      }
+      return;
+    }
     sfx.click();
     await showDialog('Isets Thron', 'Du setzt dich. Einen herrlichen Moment lang siehst du auf alles und jeden herab. &#x1F451;\nDann, eiskalt aus Richtung Sarkophag: „WER sitzt da auf meinem Thron?! DIENER! Die Krokodile haben Hunger!"\nDu stehst sehr, sehr schnell wieder auf.');
   } else if (t === 'hirn'){
@@ -562,13 +635,58 @@ export async function tryInteract(){
       await showDialog('Hirntauschinator 3000', 'Du lässt den Hebel in Ruhe.\nDie Maschine summt enttäuscht. Viktor wäre untröstlich – Emil sehr erleichtert.');
     }
   } else if (t === 'kaese'){
-    if (G.cheesePower){
-      sfx.click();
-      await showDialog('Emils Käse-Ecke', 'Noch ein Stück? Emil taucht aus dem Nichts auf und stellt sich schützend vor den Laib.\n„Der ist für den GRAFEN! Also… fürs Buffet! Also… meiner."\nDu hast ohnehin noch Käse-Power für den nächsten Auftritt. &#x1F9C0;');
+    // 1) Käse-Power-Stück (einmalig, bis es im nächsten Kampf verbraucht ist)
+    if (!G.cheesePower){
+      const stk = await showDialog('Emils Käse-Ecke',
+        'Der Laib duftet kräftig herüber. Ein großzügiges Stück würde deinem nächsten Auftritt Präsenz (▲) verleihen.\nAbschneiden?', { yesNo:true });
+      if (stk){
+        G.cheesePower = true;
+        sfx.heal(); save();
+        await showDialog('Emils Käse-Ecke', 'Du schneidest dir ein großzügiges Stück vom Käselaib ab. Kräftig. Würzig. Mutmachend. &#x1F9C0;\n&#x2728; KÄSE-POWER: Dein nächster Auftritt startet mit erhöhter Präsenz (▲)!\nIrgendwo seufzt Emil, als hätte er es gespürt.');
+        return;
+      }
+    }
+    // 2) Tagesverkostung (1× pro Spieltag): heilt etwas + Applaus-Punkte
+    if (kaeseDay !== cur.dayCount){
+      const sorte = KAESE_SORTEN[cur.dayCount % KAESE_SORTEN.length];
+      const act = activeFighter();
+      const ok = await showDialog('Emils Käse-Ecke',
+        `Emil taucht hinter der Theke auf, plötzlich ganz Gastgeber: „Tagesverkostung! Heute: ${sorte}."\nEine Probe für ${act.name}? (heilt etwas + Applaus-Punkte, 1× pro Spieltag)`, { yesNo:true });
+      if (ok){
+        kaeseDay = cur.dayCount;
+        act.hp = Math.min(act.maxHP, act.hp + Math.round(act.maxHP*.35));
+        const amount = 6 + act.lvl*2;
+        const ups = grantXP(act, amount);
+        sfx.heal(); hudUpdate(); save();
+        await showDialog('Tagesverkostung', `${act.name} kostet den ${sorte} – erst skeptisch, dann mit geschlossenen Augen. &#x1F9C0;\nMotivation steigt, +${amount} Applaus-Punkte!` + (ups ? `\n&#x2B50; ${act.name} steigt auf Lv. ${act.lvl}!` : '') + '\nEmil nickt fachmännisch: „Gute Wahl. Also meine."');
+        return;
+      }
+    }
+    // 3) Krokodil-Quest: ein Stück Romadur fürs Eselsmilch-Bad
+    if (!G.krokoFed && !G.cheeseCarry){
+      const mit = await showDialog('Emils Käse-Ecke',
+        'Emil beugt sich verschwörerisch vor: „Du… das Krokodil in der Eselsmilch? Das mag Romadur. SEHR."\nEin gut abgehangenes Stück fürs Krokodil einpacken?', { yesNo:true });
+      if (mit){
+        G.cheeseCarry = true;
+        sfx.catchOk(); save();
+        await showDialog('Emils Käse-Ecke', 'Emil wickelt ein Stück Romadur in Bühnenpapier. Es duftet… durchsetzungsstark. &#x1F9C0;\nBring es zum Eselsmilch-Bad – und wirf es. Nicht reichen. WERFEN.');
+        return;
+      }
+    }
+    sfx.click();
+    await showDialog('Emils Käse-Ecke', G.krokoFed
+      ? 'Emil poliert zufrieden die Theke: „Das Krokodil lässt mich neuerdings grüßen.\nWir Käsemenschen halten zusammen."'
+      : 'Emil stellt sich schützend vor den Laib: „Der Rest ist für den GRAFEN! Also… fürs Buffet! Also… meiner."');
+  } else if (t === 'rad'){
+    const mit = await showDialog('Technik-Rad',
+      'Hinter der Bühne lehnt ein knallrotes Fahrrad – am Lenker ein Zettel: „NICHT ANFASSEN. – L."\nDas ist eindeutig Logges Fluchtrad. Beschlagnahmen? (Regie-Befugnis!)', { yesNo:true });
+    if (mit){
+      G.hasBike = true; G.bikeOn = true;
+      updateBike();
+      sfx.catchOk(); save();
+      await showDialog('Technik-Rad', 'Du schwingst dich auf Logges Rad – die Klingel macht ein entrüstetes *PLING*. &#x1F6B2;\nDamit bist du fast doppelt so schnell auf der Wiese unterwegs!\nAuf- und absteigen: Taste F oder der &#x1F6B2;-Knopf oben rechts.');
     } else {
-      G.cheesePower = true;
-      sfx.heal(); save();
-      await showDialog('Emils Käse-Ecke', 'Du schneidest dir ein großzügiges Stück vom Käselaib ab. Kräftig. Würzig. Mutmachend. &#x1F9C0;\n&#x2728; KÄSE-POWER: Dein nächster Auftritt startet mit erhöhter Präsenz (▲)!\nIrgendwo seufzt Emil, als hätte er es gespürt.');
+      await showDialog('Technik-Rad', 'Du lässt das Rad stehen. Sehr korrekt. Sehr langsam.');
     }
   } else if (t === 'huepf'){
     if (bounceDay === cur.dayCount){

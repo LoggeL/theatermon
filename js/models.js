@@ -76,6 +76,40 @@ export function animPerson(g, moving, dt){
   a.armR.rotation.x = Math.sin(a.t)*k*.8;
 }
 
+/* ---------- bike (Logges Technik-Rad) ---------- */
+const TIRE_GEO = new THREE.TorusGeometry(.34, .07, 8, 18);
+function bikeWheel(){
+  // innere Gruppe dreht sich (Speichen sichtbar), äußere richtet das Rad in Fahrtrichtung aus
+  const spin = new THREE.Group();
+  const tire = new THREE.Mesh(TIRE_GEO, toon('#23252f'));
+  tire.castShadow = true;
+  spin.add(tire);
+  for (let i = 0; i < 3; i++){
+    const sp = box(.035, .6, .035, '#9aa0a8', false);
+    sp.rotation.z = i * Math.PI/3;
+    spin.add(sp);
+  }
+  const g = new THREE.Group();
+  g.add(spin);
+  g.rotation.y = Math.PI/2;
+  g.userData.spin = spin;
+  return g;
+}
+export function buildBike(){
+  // knallrotes Toon-Rad — das Spielermodell „sitzt" beim Fahren einfach obendrauf
+  const g = new THREE.Group();
+  const front = bikeWheel(); front.position.set(0, .34, .58);
+  const rear  = bikeWheel(); rear.position.set(0, .34, -.58);
+  const frame  = box(.08, .08, 1.05, '#a8232f', false); frame.position.y = .52;
+  const fork   = box(.07, .55, .07, '#a8232f', false); fork.position.set(0, .62, .58); fork.rotation.x = -.15;
+  const post   = box(.07, .45, .07, '#a8232f', false); post.position.set(0, .62, -.55); post.rotation.x = .12;
+  const handle = box(.52, .06, .06, '#3a3f4a', false); handle.position.set(0, .95, .64);
+  const saddle = box(.2, .07, .38, '#4a3526', false);  saddle.position.set(0, .88, -.6);
+  g.add(front, rear, frame, fork, post, handle, saddle);
+  g.userData.wheels = [front.userData.spin, rear.userData.spin];
+  return g;
+}
+
 /* ---------- name label sprites ---------- */
 export function makeLabel(name, role, typeCol, lvlText, lvlCol){
   // mit lvlText: dritte, farbige Zeile oben (Level-Schild der Wanderer)

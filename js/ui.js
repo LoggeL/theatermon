@@ -7,7 +7,7 @@ import { $, sleep, hashStr, mulberry, pick } from './util.js';
 import { RAW, SIG, SKIN, HAIR, SHIRT, MOVES, TYPE_NAME, TYPE_BLURB } from './data.js';
 import { G, save, load, maxCatch, activeFighter, makeMember, TIME_START } from './state.js';
 import { scene } from './scene.js';
-import { buildPerson, makeLabel, disposeModel } from './models.js';
+import { buildPerson, buildBike, makeLabel, disposeModel } from './models.js';
 import { sfx, audioInit } from './audio.js';
 import { clearSave } from './storage.js';
 import { hpPct } from './battle.js';
@@ -45,7 +45,30 @@ export function setPlayerCharacter(id){
   player.rotation.y = rot;
   player.add(makeLabel(playerName(), playerRole() + ' · Casting', '#ffd97a'));
   scene.add(player);
+  updateBike();   // Modell wurde neu gebaut — Rad ggf. wieder anhängen
 }
+
+/* ---------- Technik-Rad: auf-/absteigen (F bzw. 🚲-Knopf) ---------- */
+export function updateBike(){
+  if (!player) return;
+  const on = G.hasBike && G.bikeOn;
+  let bike = player.userData.bikeModel;
+  if (on && !bike){
+    bike = buildBike();
+    bike.position.z = .08;
+    player.userData.bikeModel = bike;
+    player.add(bike);
+  }
+  if (bike) bike.visible = on;
+  $('bike').classList.toggle('hidden', !G.hasBike || G.mode === 'title');
+  $('bike').classList.toggle('on', on);
+}
+export function toggleBike(){
+  if (!G.hasBike || G.mode !== 'world') return;
+  G.bikeOn = !G.bikeOn;
+  sfx.click(); updateBike(); save();
+}
+$('bike').onclick = () => toggleBike();
 
 /* ---------- Touch-Steuerung (Handy): Joystick + Aktions-/Menü-Button ---------- */
 export const touchVec = { x:0, z:0, active:false };   // virtueller Joystick (Handy)
@@ -231,6 +254,7 @@ function buildStarterCards(){
     div.onclick = async () => {
       sfx.catchOk();
       G.ensemble = []; G.bossDown = false; G.beatriceDown = false; G.cheesePower = false;   // neuer Run beginnt erst jetzt wirklich
+      G.cheeseCarry = false; G.krokoFed = false; G.hasBike = false; G.bikeOn = false;
       G.costumeSeed = 0; G.costumePower = false;
       G.timeOfDay = TIME_START;   // neue Spiele starten am frühen Abend (Theater!)
       setPlayerCharacter(G.playerId);   // Standard-Look (falls noch ein Fundus-Kostüm vom alten Stand an war)
@@ -256,6 +280,7 @@ async function enterWorld(){
   $('minimap').classList.remove('hidden');
   G.mode = 'world';
   hudUpdate();
+  updateBike();
   save();
 }
 $('btn-new').onclick = () => {

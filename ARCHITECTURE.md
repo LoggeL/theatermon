@@ -46,11 +46,16 @@ main.js (loop liest alles, rendert scene.js)
 - Modulübergreifend *beschriebener* Zustand liegt in Objekten
   (`G`, `B`, `fx`, `touchVec`, `ANIM`), weil importierte ES-Module-Bindings
   beim Importeur read-only sind.
-- Save-Format v2: `{ v:2, playerId, bossDown, beatriceDown, cheesePower, time,
+- Save-Format v2: `{ v:2, playerId, bossDown, beatriceDown, cheesePower,
+  cheeseCarry, krokoFed, hasBike, bikeOn, costumeSeed, costumePower, time,
   ensemble:[{id,lvl,xp,hp,hpV,atkV}] }`. `load()` migriert Alt-Saves ohne
   `v`-Feld (Julian-Doppeleintrag: id 32 → 8, ids > 32 rücken um 1 auf).
-  `time` (Welt-Uhr, 0..1) ist optional — fehlt es, startet der Stand am
-  frühen Abend (`TIME_START`); keine eigene Migrationsstufe nötig.
+  `time` (Welt-Uhr, 0..1) und die Bool-Flags sind optional — fehlen sie,
+  greifen die Defaults (`TIME_START` bzw. `false`); keine Migrationsstufe nötig.
+- Technik-Rad: Welt-Prop hinter der Bühne (`radPos`, `world.js`), nach dem
+  Fund hängt `ui.js` (`updateBike`) das `buildBike`-Modell an den Spieler;
+  Tempo/Pedal-Animation regelt der Loop in `main.js` (`riding`), Umschalten
+  per Taste F oder `#bike`-Button.
 
 ## Erweiterbarkeit
 

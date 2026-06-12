@@ -94,6 +94,9 @@ canvas{display:block;}
 #hint{position:fixed;bottom:14px;left:14px;z-index:11;padding:6px 14px;font-size:15px;color:#3c352f;}
 #interact{position:fixed;bottom:80px;left:50%;transform:translateX(-50%) rotate(-1deg);z-index:11;padding:8px 18px;font-size:18px;}
 #mute{position:fixed;top:14px;right:14px;z-index:12;font-size:17px;padding:6px 12px;}
+#bike{position:fixed;top:14px;right:64px;z-index:12;font-size:17px;padding:6px 12px;}
+#bike.on{border-color:var(--gold);box-shadow:0 0 10px rgba(255,217,122,.45);}
+body.touch #bike{right:182px;}
 
 /* dialog */
 #dialog{z-index:30;background:rgba(12,14,30,.45);}

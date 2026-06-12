@@ -87,6 +87,10 @@ export const G = {
   bossDown: false,
   beatriceDown: false,    // Miniboss-Pflanze besiegt?
   cheesePower: false,     // Käselaib gegessen → nächster Kampf startet mit Präsenz ▲
+  cheeseCarry: false,     // Romadur-Stück fürs Krokodil eingepackt (Käse-Ecken-Quest)
+  krokoFed: false,        // Krokodil gefüttert → Freund fürs Leben (tägliches Training am Teich)
+  hasBike: false,         // Logges Technik-Rad hinter der Bühne gefunden
+  bikeOn: false,          // gerade aufgesessen (F bzw. 🚲-Knopf)
   costumeSeed: 0,         // Fundus-Outfit des Spielers (0 = Standard-Look)
   costumePower: false,    // frisches Fundus-Kostüm → nächster Kampf startet mit Deckung ▲
   encounterCooldown: 0,
@@ -100,6 +104,10 @@ export function save(){
     bossDown: G.bossDown,
     beatriceDown: G.beatriceDown,
     cheesePower: G.cheesePower,
+    cheeseCarry: G.cheeseCarry,
+    krokoFed: G.krokoFed,
+    hasBike: G.hasBike,
+    bikeOn: G.bikeOn,
     costumeSeed: G.costumeSeed,
     costumePower: G.costumePower,
     playerId: G.playerId,
@@ -128,6 +136,10 @@ export function load(){
     G.bossDown = !!d.bossDown;
     G.beatriceDown = !!d.beatriceDown;
     G.cheesePower = !!d.cheesePower;
+    G.cheeseCarry = !!d.cheeseCarry;
+    G.krokoFed = !!d.krokoFed;
+    G.hasBike = !!d.hasBike;
+    G.bikeOn = !!d.bikeOn;
     G.costumeSeed = d.costumeSeed || 0;
     G.costumePower = !!d.costumePower;
     G.playerId = d.playerId ?? -2;

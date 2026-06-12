@@ -176,4 +176,5 @@ export const AHNEN_QUOTES = [
   '„Falls Lucy fragt: Wir sind NICHT zu Hause. Keiner von uns. Niemals."',
   '„Die Mumie badet schon wieder in Eselsmilch. DREI Stunden. Wir haben auch Bedürfnisse!"',
   '„Wenn du Logge besiegst, häng bitte mein Portrait etwas höher. Neben den Grafen. Aus Gründen."',
+  '„Logge versteckt sein rotes Rad hinter der Bühne. Als ob wir das nicht sehen würden. Wir sehen ALLES."',
 ];
